@@ -14,7 +14,7 @@ A high-performance, interactive 3D mesh viewer built with **C++20**, **Qt6**, an
 ### 🛠 Visualization Tools
 - **Multiple Formats:** Supports OBJ, PLY, STL, OFF, and more via Assimp.
 - **Advanced Shading:** Toggle between modern shader-based shading and a legacy fallback path.
-- **Wireframe Overlay:** High-visibility wireframe with Z-fighting prevention.
+- **Wireframe Overlay:** High-visibility wireframe with Z-fighting prevention (via polygon offset).
 - **Normal Visualization:** View vertex normals to inspect surface orientation.
 - **Metadata Labels:** Toggle index labels for both vertices and faces.
 - **Bounding Box:** Visual representation of the mesh's spatial extents.
@@ -23,6 +23,22 @@ A high-performance, interactive 3D mesh viewer built with **C++20**, **Qt6**, an
 - **Intuitive Camera:** Standard trackball rotation, zooming, and panning via libQGLViewer.
 - **Comprehensive UI:** Features a toolbar for quick toggles and a menu bar for file management and advanced tools.
 - **Cache Management:** Tools to clear specific mesh caches directly from the application menu.
+
+## 🎨 Rendering Modes
+
+The application supports two distinct rendering paths that can be toggled in real-time for comparison:
+
+### ⚡️ Modern (Shader) Path
+*   **Technique:** Per-Pixel Lighting (**Phong Shading**).
+*   **Visuals:** Extremely smooth lighting and specular highlights, even on low-poly meshes.
+*   **Implementation:** Custom GLSL Shaders + VAOs.
+*   **Best for:** High performance and visual quality on modern GPUs.
+
+### 🏛 Legacy (VBO) Path
+*   **Technique:** Per-Vertex Lighting (**Gouraud Shading**).
+*   **Visuals:** Lighting is calculated at vertices and interpolated; can appear "blocky" or "jagged" on complex geometry.
+*   **Implementation:** Fixed-Function Pipeline emulation (via VBOs).
+*   **Best for:** Compatibility testing or comparing with classic rendering standards.
 
 ## Dependencies
 
