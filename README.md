@@ -5,40 +5,38 @@ A high-performance, interactive 3D mesh viewer built with **C++20**, **Qt6**, an
 ## Features
 
 ### 🚀 Performance & Optimization
+- **Parallel Asynchronous Loading:** Multiple mesh files are loaded simultaneously in background threads, eliminating bottlenecks and keeping the UI responsive.
+- **Binary Mesh Caching:** Automatically saves processed meshes to the system's temporary directory (`/tmp`) for nearly instantaneous re-loading in future sessions.
 - **Modern Shader Pipeline:** Uses GLSL shaders and **Vertex Array Objects (VAOs)** for highly efficient GPU-based rendering.
-- **Binary Mesh Caching:** Automatically saves processed meshes to the system's temporary directory (`/tmp`) for nearly instantaneous re-loading.
-- **Asynchronous Loading:** Large mesh files are loaded in background threads, keeping the UI responsive with real-time progress feedback.
 - **Real-time Benchmarking:** Built-in performance monitoring displaying average draw time (ms) and estimated FPS in the status bar.
-- **Memory Efficient:** Optimized data structures with pre-allocation to handle millions of vertices and faces smoothly.
 
 ### 🛠 Visualization Tools
-- **Multiple Formats:** Supports OBJ, PLY, STL, OFF, and more via Assimp.
-- **Advanced Shading:** Toggle between modern shader-based shading and a legacy fallback path.
-- **Wireframe Overlay:** High-visibility wireframe with Z-fighting prevention (via polygon offset).
-- **Normal Visualization:** View vertex normals to inspect surface orientation.
-- **Metadata Labels:** Toggle index labels for both vertices and faces.
-- **Bounding Box:** Visual representation of the mesh's spatial extents.
+- **Multi-Mesh Support:** Load any number of meshes side-by-side for comparison.
+- **Automatic Horizontal Stacking:** Meshes are automatically arranged along the X-axis with guaranteed separation (no bounding box overlaps).
+- **Straight-Line Center Alignment:** The centers of all mesh bounding boxes are perfectly aligned on a single horizontal line, with the entire group centered at the origin `(0,0,0)` for stable rotation.
+- **Togglable Scale Normalization:** Automatically resize models of different scales (e.g., millimeters vs. meters) to a uniform size for side-by-side viewing, or toggle off to see true relative dimensions.
+- **Global Bounding Box:** Displays a collective **blue** bounding box for the entire scene alongside individual **red** boxes for each mesh.
+- **Advanced Shading:** Toggle between modern per-pixel Phong shading and a legacy fallback path.
+- **Wireframe & Metadata:** High-visibility wireframe overlays, vertex normals, and index labels for both vertices and faces.
 
 ### 🖱 Interactive Controls & UI
-- **Intuitive Camera:** Standard trackball rotation, zooming, and panning via libQGLViewer.
-- **Comprehensive UI:** Features a toolbar for quick toggles and a menu bar for file management and advanced tools.
-- **Cache Management:** Tools to clear specific mesh caches directly from the application menu.
+- **Intuitive Camera:** Standard trackball rotation, zooming, and panning via libQGLViewer. The center of rotation is automatically set to the center of the global bounding box.
+- **Comprehensive UI:** Features a toolbar for quick toggles and a status bar for real-time loading feedback.
+- **Multi-File CLI:** Pass multiple file paths as command-line arguments to launch directly into a multi-mesh scene.
 
 ## 🎨 Rendering Modes
 
-The application supports two distinct rendering paths that can be toggled in real-time for comparison:
+The application supports two distinct rendering paths that can be toggled in real-time:
 
 ### ⚡️ Modern (Shader) Path
 *   **Technique:** Per-Pixel Lighting (**Phong Shading**).
-*   **Visuals:** Extremely smooth lighting and specular highlights, even on low-poly meshes.
+*   **Visuals:** Extremely smooth lighting and specular highlights.
 *   **Implementation:** Custom GLSL Shaders + VAOs.
-*   **Best for:** High performance and visual quality on modern GPUs.
 
 ### 🏛 Legacy (VBO) Path
 *   **Technique:** Per-Vertex Lighting (**Gouraud Shading**).
-*   **Visuals:** Lighting is calculated at vertices and interpolated; can appear "blocky" or "jagged" on complex geometry.
-*   **Implementation:** Fixed-Function Pipeline emulation (via VBOs).
-*   **Best for:** Compatibility testing or comparing with classic rendering standards.
+*   **Visuals:** Classical interpolated lighting; useful for compatibility testing.
+*   **Implementation:** Fixed-Function Pipeline emulation.
 
 ## Dependencies
 
@@ -54,7 +52,6 @@ Ensure all dependencies are installed. On macOS using Homebrew:
 ```bash
 brew install qt assimp glm
 ```
-*Note: libQGLViewer may need to be built from source or provided via a custom path.*
 
 ### Compiling
 ```bash
@@ -65,19 +62,20 @@ make
 
 ## Usage
 
-Run the executable and open a mesh file through the UI, or pass it as a command-line argument:
+Run the executable and open mesh files through the UI (multi-select enabled), or pass multiple models as command-line arguments:
 ```bash
-./build/meshviewer path/to/your/model.obj
+./build/meshviewer model1.obj model2.ply model3.stl
 ```
 
 ## Shortcuts
 | Key | Action |
 |-----|--------|
-| **O** | Open Mesh |
-| **S** | Toggle Modern Shaders (Benchmarking) |
+| **O** | Open Mesh(es) |
+| **N** | Toggle Scale Normalization (Uniform vs. True Size) |
+| **L** | Toggle Normals |
 | **W** | Toggle Wireframe |
-| **N** | Toggle Normals |
 | **V** | Toggle Vertex Labels |
 | **F** | Toggle Face Labels |
-| **B** | Toggle Bounding Box |
+| **B** | Toggle Bounding Boxes (Individual & Global) |
+| **S** | Toggle Modern Shaders |
 | **H** | Help (Viewer Controls) |
