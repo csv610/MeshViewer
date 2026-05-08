@@ -2,8 +2,51 @@
 #include <iostream>
 #include <algorithm>
 #include <limits>
+#include <fstream>
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
+std::string Mesh::getCachePath(const std::string& filename) {
+    try {
+        fs::path p = fs::absolute(filename);
+        size_t hash = std::hash<std::string>{}(p.string());
+        std::string cacheName = "meshviewer_" + std::to_string(hash) + ".cache";
+        return (fs::temp_directory_path() / cacheName).string();
+    } catch (...) {
+        return filename + ".cache"; // Fallback
+    }
+}
 
 bool Mesh::load(const std::string& filename) {
+    std::string cacheFilename = getCachePath(filename);
+    
+    // Check if cache exists and is newer than the source file
+    if (fs::exists(cacheFilename) && fs::exists(filename)) {
+        auto sourceTime = fs::last_write_time(filename);
+        auto cacheTime = fs::last_write_time(cacheFilename);
+        
+        if (cacheTime > sourceTime) {
+            std::ifstream is(cacheFilename, std::ios::binary);
+            if (is) {
+                clear();
+                size_t vSize, iSize;
+                is.read(reinterpret_cast<char*>(&vSize), sizeof(size_t));
+                vertices.resize(vSize);
+                is.read(reinterpret_cast<char*>(vertices.data()), vSize * sizeof(Vertex));
+                
+                is.read(reinterpret_cast<char*>(&iSize), sizeof(size_t));
+                indices.resize(iSize);
+                is.read(reinterpret_cast<char*>(indices.data()), iSize * sizeof(unsigned int));
+                
+                is.read(reinterpret_cast<char*>(&minBB), sizeof(glm::vec3));
+                is.read(reinterpret_cast<char*>(&maxBB), sizeof(glm::vec3));
+                
+                if (is) return true; // Successfully loaded from cache
+            }
+        }
+    }
+
     Assimp::Importer importer;
     // aiProcess_JoinIdenticalVertices can be slow for very large meshes, 
     // but it's often needed for smooth normals.
@@ -69,6 +112,20 @@ bool Mesh::load(const std::string& filename) {
             }
         }
     }
+
+    // Save to cache
+    std::ofstream os(cacheFilename, std::ios::binary);
+    if (os) {
+        size_t vSize = vertices.size();
+        size_t iSize = indices.size();
+        os.write(reinterpret_cast<const char*>(&vSize), sizeof(size_t));
+        os.write(reinterpret_cast<const char*>(vertices.data()), vSize * sizeof(Vertex));
+        os.write(reinterpret_cast<const char*>(&iSize), sizeof(size_t));
+        os.write(reinterpret_cast<const char*>(indices.data()), iSize * sizeof(unsigned int));
+        os.write(reinterpret_cast<const char*>(&minBB), sizeof(glm::vec3));
+        os.write(reinterpret_cast<const char*>(&maxBB), sizeof(glm::vec3));
+    }
+
     return true;
 }
 

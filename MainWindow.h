@@ -21,6 +21,7 @@ private slots:
     void toggleFaceLabels(bool checked);
     void toggleBB(bool checked);
     void onMeshLoaded();
+    void clearCache();
 
 private:
     Viewer* viewer;

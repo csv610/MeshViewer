@@ -22,6 +22,8 @@ struct Mesh {
 
     bool load(const std::string& filename);
     void clear();
+    
+    static std::string getCachePath(const std::string& filename);
 };
 
 #endif

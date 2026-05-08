@@ -8,11 +8,22 @@
 #include <QStatusBar>
 #include <QKeyEvent>
 #include <QtConcurrent/QtConcurrent>
+#include <QMenuBar>
+#include <QMenu>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     viewer = new Viewer(this);
     setCentralWidget(viewer);
 
+    // Menu Bar
+    QMenu* fileMenu = menuBar()->addMenu("&File");
+    QAction* openAction = fileMenu->addAction("&Open Mesh", this, &MainWindow::openFile, QKeySequence::Open);
+    
+    QMenu* toolsMenu = menuBar()->addMenu("&Tools");
+    toolsMenu->addAction("Clear &Current Cache", this, &MainWindow::clearCache);
+
+    // Tool Bar
     QToolBar* toolBar = addToolBar("Controls");
     
     QPushButton* openBtn = new QPushButton("Open Mesh", this);
@@ -93,3 +104,21 @@ void MainWindow::toggleNormals(bool checked) { viewer->showNormals = checked; vi
 void MainWindow::toggleVertexLabels(bool checked) { viewer->showVertexLabels = checked; viewer->update(); }
 void MainWindow::toggleFaceLabels(bool checked) { viewer->showFaceLabels = checked; viewer->update(); }
 void MainWindow::toggleBB(bool checked) { viewer->showBoundingBox = checked; viewer->update(); }
+
+void MainWindow::clearCache() {
+    if (pendingFilename.isEmpty()) {
+        statusBar()->showMessage("No mesh loaded to clear cache for.");
+        return;
+    }
+
+    QString cachePath = QString::fromStdString(Mesh::getCachePath(pendingFilename.toStdString()));
+    if (QFile::exists(cachePath)) {
+        if (QFile::remove(cachePath)) {
+            statusBar()->showMessage("Cache cleared for: " + QFileInfo(pendingFilename).fileName());
+        } else {
+            statusBar()->showMessage("Failed to remove cache file.");
+        }
+    } else {
+        statusBar()->showMessage("No cache file found for this mesh.");
+    }
+}
