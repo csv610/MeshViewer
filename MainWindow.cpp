@@ -7,6 +7,7 @@
 #include <QToolBar>
 #include <QStatusBar>
 #include <QKeyEvent>
+#include <QtConcurrent/QtConcurrent>
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     viewer = new Viewer(this);
@@ -36,6 +37,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     addToggle("Face Labels", Qt::Key_F, &MainWindow::toggleFaceLabels);
     addToggle("Bounding Box", Qt::Key_B, &MainWindow::toggleBB);
 
+    connect(&watcher, &QFutureWatcher<bool>::finished, this, &MainWindow::onMeshLoaded);
+
+    progressDialog = new QProgressDialog("Loading mesh...", "Cancel", 0, 0, this);
+    progressDialog->setWindowModality(Qt::WindowModal);
+    progressDialog->setMinimumDuration(500); // Show only if it takes more than 0.5s
+    progressDialog->close();
+
     statusBar()->showMessage("Ready.");
     setWindowTitle("Mesh Viewer");
     resize(1000, 1000);
@@ -49,13 +57,34 @@ void MainWindow::openFile() {
 }
 
 void MainWindow::loadMesh(const QString& filename) {
-    Mesh mesh;
-    if (mesh.load(filename.toStdString())) {
+    if (watcher.isRunning()) {
+        statusBar()->showMessage("Wait! Another mesh is still loading...");
+        return;
+    }
+
+    pendingFilename = filename;
+    statusBar()->showMessage("Loading mesh: " + filename + " ...");
+    
+    progressDialog->setLabelText("Loading mesh: " + QFileInfo(filename).fileName() + " ...");
+    progressDialog->show();
+
+    QFuture<bool> future = QtConcurrent::run([this, filename]() {
+        return mesh.load(filename.toStdString());
+    });
+    watcher.setFuture(future);
+}
+
+void MainWindow::onMeshLoaded() {
+    progressDialog->close();
+    if (watcher.result()) {
         viewer->setMesh(mesh);
-        setWindowTitle("Mesh Viewer - " + filename);
-        statusBar()->showMessage(QString("Vertices: %1 | Faces: %2").arg(mesh.vertices.size()).arg(mesh.indices.size() / 3));
+        setWindowTitle("Mesh Viewer - " + pendingFilename);
+        statusBar()->showMessage(QString("Loaded: %1 | Vertices: %2 | Faces: %3")
+            .arg(pendingFilename)
+            .arg(mesh.vertices.size())
+            .arg(mesh.indices.size() / 3));
     } else {
-        statusBar()->showMessage("Failed to load mesh: " + filename);
+        statusBar()->showMessage("Failed to load mesh: " + pendingFilename);
     }
 }
 

@@ -2,6 +2,8 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QFutureWatcher>
+#include <QProgressDialog>
 #include "Viewer.h"
 
 class MainWindow : public QMainWindow {
@@ -18,9 +20,14 @@ private slots:
     void toggleVertexLabels(bool checked);
     void toggleFaceLabels(bool checked);
     void toggleBB(bool checked);
+    void onMeshLoaded();
 
 private:
     Viewer* viewer;
+    Mesh mesh;
+    QFutureWatcher<bool> watcher;
+    QProgressDialog* progressDialog;
+    QString pendingFilename;
 };
 
 #endif

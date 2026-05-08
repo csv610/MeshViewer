@@ -1,12 +1,15 @@
 #ifndef VIEWER_H
 #define VIEWER_H
 
+#include <QOpenGLBuffer>
+#include <QOpenGLFunctions>
 #include <QGLViewer/qglviewer.h>
 #include "Mesh.h"
 
-class Viewer : public QGLViewer {
+class Viewer : public QGLViewer, protected QOpenGLFunctions {
 public:
     Viewer(QWidget* parent = nullptr);
+    ~Viewer();
 
     void setMesh(const Mesh& mesh);
     
@@ -22,7 +25,11 @@ protected:
 
 private:
     Mesh mesh;
-    void drawMesh();
+    QOpenGLBuffer vbo;
+    QOpenGLBuffer ibo;
+
+    void setupBuffers();
+    void drawMeshVBO();
     void drawNormals();
     void drawLabels();
     void drawBB();

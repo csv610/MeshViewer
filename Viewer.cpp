@@ -2,9 +2,19 @@
 #include <OpenGL/gl.h>
 #include <iostream>
 
-Viewer::Viewer(QWidget* parent) : QGLViewer(parent) {}
+Viewer::Viewer(QWidget* parent) 
+    : QGLViewer(parent), 
+      vbo(QOpenGLBuffer::VertexBuffer), 
+      ibo(QOpenGLBuffer::IndexBuffer) {}
+
+Viewer::~Viewer() {
+    makeCurrent();
+    vbo.destroy();
+    ibo.destroy();
+}
 
 void Viewer::setMesh(const Mesh& m) {
+    makeCurrent();
     mesh = m;
     if (!mesh.vertices.empty()) {
         glm::vec3 center = (mesh.minBB + mesh.maxBB) * 0.5f;
@@ -12,17 +22,32 @@ void Viewer::setMesh(const Mesh& m) {
         setSceneCenter(qglviewer::Vec(center.x, center.y, center.z));
         setSceneRadius(radius > 0 ? radius : 1.0f);
         showEntireScene();
+        setupBuffers();
     }
     update();
 }
 
 void Viewer::init() {
+    initializeOpenGLFunctions();
     restoreStateFromFile();
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+}
+
+void Viewer::setupBuffers() {
+    if (!vbo.isCreated()) vbo.create();
+    vbo.bind();
+    vbo.allocate(mesh.vertices.data(), mesh.vertices.size() * sizeof(Mesh::Vertex));
+    
+    if (!ibo.isCreated()) ibo.create();
+    ibo.bind();
+    ibo.allocate(mesh.indices.data(), mesh.indices.size() * sizeof(unsigned int));
+    
+    vbo.release();
+    ibo.release();
 }
 
 void Viewer::draw() {
@@ -36,7 +61,7 @@ void Viewer::draw() {
     glColor3f(0.8f, 0.8f, 0.8f);
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(1.0f, 1.0f);
-    drawMesh();
+    drawMeshVBO();
     glDisable(GL_POLYGON_OFFSET_FILL);
 
     // 2. Overlays
@@ -44,7 +69,7 @@ void Viewer::draw() {
         glDisable(GL_LIGHTING);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glColor3f(0.0f, 0.0f, 0.0f);
-        drawMesh();
+        drawMeshVBO();
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
 
@@ -55,14 +80,23 @@ void Viewer::draw() {
     glPopAttrib();
 }
 
-void Viewer::drawMesh() {
-    glBegin(GL_TRIANGLES);
-    for (unsigned int i : mesh.indices) {
-        const auto& v = mesh.vertices[i];
-        glNormal3f(v.normal.x, v.normal.y, v.normal.z);
-        glVertex3f(v.position.x, v.position.y, v.position.z);
-    }
-    glEnd();
+void Viewer::drawMeshVBO() {
+    vbo.bind();
+    ibo.bind();
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_NORMAL_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, sizeof(Mesh::Vertex), (void*)offsetof(Mesh::Vertex, position));
+    glNormalPointer(GL_FLOAT, sizeof(Mesh::Vertex), (void*)offsetof(Mesh::Vertex, normal));
+
+    glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+
+    ibo.release();
+    vbo.release();
 }
 
 void Viewer::drawNormals() {
