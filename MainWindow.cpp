@@ -44,10 +44,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     };
 
     addToggle("Wireframe", Qt::Key_W, &MainWindow::toggleWireframe);
-    addToggle("Normals", Qt::Key_N, &MainWindow::toggleNormals);
+    addToggle("Normals", Qt::Key_L, &MainWindow::toggleNormals);
     addToggle("Vertex Labels", Qt::Key_V, &MainWindow::toggleVertexLabels);
     addToggle("Face Labels", Qt::Key_F, &MainWindow::toggleFaceLabels);
     addToggle("Bounding Box", Qt::Key_B, &MainWindow::toggleBB);
+    QCheckBox* normCb = addToggle("Normalize Scale", Qt::Key_N, &MainWindow::toggleNormalizeScale);
+    normCb->setChecked(true);
 
     toolBar->addSeparator();
     QCheckBox* shaderCb = addToggle("Use Modern Shaders", Qt::Key_S, &MainWindow::toggleShaderMode);
@@ -122,6 +124,11 @@ void MainWindow::processReadyMeshes() {
             statusBar()->showMessage("Failed to load: " + QFileInfo(pending->filename).fileName());
         }
     }
+}
+
+void MainWindow::toggleNormalizeScale(bool checked) { 
+    viewer->normalizeScale = checked; 
+    viewer->updateLayout(); 
 }
 
 void MainWindow::toggleWireframe(bool checked) { viewer->showWireframe = checked; viewer->update(); }

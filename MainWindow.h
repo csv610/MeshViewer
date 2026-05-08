@@ -29,6 +29,7 @@ private slots:
     void toggleVertexLabels(bool checked);
     void toggleFaceLabels(bool checked);
     void toggleBB(bool checked);
+    void toggleNormalizeScale(bool checked);
     void processReadyMeshes();
     void clearCache();
     void toggleShaderMode(bool checked);

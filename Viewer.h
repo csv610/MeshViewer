@@ -18,6 +18,7 @@ struct MeshModel {
     bool gpuReady = false;
     QString name;
     glm::vec3 offset = glm::vec3(0.0f);
+    float scale = 1.0f;
 
     MeshModel() : 
         vbo(std::make_unique<QOpenGLBuffer>(QOpenGLBuffer::VertexBuffer)),
@@ -32,13 +33,15 @@ public:
 
     void addMesh(const Mesh& mesh, const QString& name = "Mesh");
     void clearScene();
+    void updateLayout(); // New method to recalculate offsets
     
     bool showWireframe = false;
     bool showNormals = false;
     bool showVertexLabels = false;
     bool showFaceLabels = false;
     bool showBoundingBox = false;
-    bool useShaders = true; // Modern path enabled by default
+    bool useShaders = true;
+    bool normalizeScale = true; // Togglable normalization
 
     double getFPS() const { return 1000.0 / lastFrameTime; }
     double getFrameTime() const { return lastFrameTime; }

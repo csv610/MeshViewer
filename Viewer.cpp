@@ -16,30 +16,52 @@ void Viewer::addMesh(const Mesh& m, const QString& name) {
     model->data = m;
     model->name = name;
     
-    // Calculate center-aligned horizontal stacking
-    glm::vec3 localCenter = (m.minBB + m.maxBB) * 0.5f;
-    float xOffset = 0.0f;
-    
-    if (!models.empty()) {
-        auto lastModel = models.back();
-        // Spacing based on previous model's right edge
-        float lastRightEdge = lastModel->offset.x + lastModel->data.maxBB.x;
-        float padding = (lastModel->data.maxBB.x - lastModel->data.minBB.x) * 0.1f;
-        if (padding <= 0.0f) padding = 0.5f; // Fallback for point clouds or small meshes
-        
-        // New model's left edge should be at lastRightEdge + padding
-        xOffset = lastRightEdge + padding - m.minBB.x;
-    } else {
-        // First model starts so its left edge is at x=0
-        xOffset = -m.minBB.x;
-    }
-    
-    // Align centers on the X-axis (Y=0, Z=0)
-    model->offset = glm::vec3(xOffset, -localCenter.y, -localCenter.z);
+    // Initial scale calculation (always stored, but application is togglable)
+    float targetSize = 100.0f;
+    glm::vec3 dims = m.maxBB - m.minBB;
+    float maxDim = std::max({dims.x, dims.y, dims.z});
+    model->scale = (maxDim > 0) ? (targetSize / maxDim) : 1.0f;
 
     setupModelGPU(*model);
     models.push_back(model);
     
+    updateLayout();
+}
+
+void Viewer::updateLayout() {
+    if (models.empty()) return;
+
+    float currentLeftEdge = 0.0f;
+    
+    // Pass 1: Calculate offsets for stacking along X-axis
+    for (size_t i = 0; i < models.size(); ++i) {
+        auto& model = models[i];
+        float s = normalizeScale ? model->scale : 1.0f;
+        
+        float w = (model->data.maxBB.x - model->data.minBB.x) * s;
+        float centerY = (model->data.maxBB.y + model->data.minBB.y) * 0.5f * s;
+        float centerZ = (model->data.maxBB.z + model->data.minBB.z) * 0.5f * s;
+
+        if (i > 0) {
+            auto& prevModel = models[i-1];
+            float prevS = normalizeScale ? prevModel->scale : 1.0f;
+            float prevWidth = (prevModel->data.maxBB.x - prevModel->data.minBB.x) * prevS;
+            float padding = prevWidth * 0.1f;
+            if (padding <= 0.0f) padding = normalizeScale ? 5.0f : 0.5f;
+            currentLeftEdge += padding;
+        }
+
+        model->offset = glm::vec3(currentLeftEdge - (model->data.minBB.x * s), -centerY, -centerZ);
+        currentLeftEdge += w;
+    }
+
+    // Pass 2: Shift everything so the entire group is centered at X=0
+    float totalWidth = currentLeftEdge;
+    float groupShiftX = totalWidth * 0.5f;
+    for (auto& model : models) {
+        model->offset.x -= groupShiftX;
+    }
+
     updateSceneConstraints();
     update();
 }
@@ -62,8 +84,9 @@ void Viewer::updateSceneConstraints() {
     globalMaxBB = glm::vec3(std::numeric_limits<float>::lowest());
 
     for (const auto& model : models) {
-        globalMinBB = glm::min(globalMinBB, model->data.minBB + model->offset);
-        globalMaxBB = glm::max(globalMaxBB, model->data.maxBB + model->offset);
+        float s = normalizeScale ? model->scale : 1.0f;
+        globalMinBB = glm::min(globalMinBB, model->data.minBB * s + model->offset);
+        globalMaxBB = glm::max(globalMaxBB, model->data.maxBB * s + model->offset);
     }
 
     glm::vec3 center = (globalMinBB + globalMaxBB) * 0.5f;
@@ -185,6 +208,7 @@ void Viewer::drawModelShaders(MeshModel& model, bool lighting, const QVector3D& 
     QMatrix4x4 mv;
     for(int i=0; i<16; ++i) mv.data()[i] = (float)modelview[i];
     mv.translate(model.offset.x, model.offset.y, model.offset.z);
+    if (normalizeScale) mv.scale(model.scale);
 
     QMatrix4x4 p;
     for(int i=0; i<16; ++i) p.data()[i] = (float)projection[i];
@@ -210,6 +234,7 @@ void Viewer::drawModelShaders(MeshModel& model, bool lighting, const QVector3D& 
 void Viewer::drawModelVBO(MeshModel& model) {
     glPushMatrix();
     glTranslatef(model.offset.x, model.offset.y, model.offset.z);
+    if (normalizeScale) glScalef(model.scale, model.scale, model.scale);
     
     model.vbo->bind();
     model.ibo->bind();
@@ -236,9 +261,10 @@ void Viewer::drawNormals() {
     glColor3f(0.0f, 1.0f, 0.0f);
     glBegin(GL_LINES);
     for (const auto& model : models) {
+        float s = normalizeScale ? model->scale : 1.0f;
         float length = sceneRadius() * 0.05f;
         for (const auto& v : model->data.vertices) {
-            glm::vec3 p = v.position + model->offset;
+            glm::vec3 p = v.position * s + model->offset;
             glVertex3f(p.x, p.y, p.z);
             glVertex3f(p.x + v.normal.x * length, p.y + v.normal.y * length, p.z + v.normal.z * length);
         }
@@ -252,11 +278,12 @@ void Viewer::drawLabels() {
     size_t totalLabelCount = 0;
 
     for (const auto& model : models) {
+        float s = normalizeScale ? model->scale : 1.0f;
         if (showVertexLabels) {
             glColor3f(1.0f, 1.0f, 0.0f);
             for (size_t i = 0; i < model->data.vertices.size(); ++i) {
                 const auto& v = model->data.vertices[i];
-                glm::vec3 p = v.position + model->offset;
+                glm::vec3 p = v.position * s + model->offset;
                 qglviewer::Vec screenPos = camera()->projectedCoordinatesOf(qglviewer::Vec(p.x, p.y, p.z));
                 if (screenPos.z >= 0.0 && screenPos.z <= 1.0) {
                     drawText((int)screenPos.x, (int)screenPos.y, QString::number(i));
@@ -272,7 +299,7 @@ void Viewer::drawLabels() {
                 glm::vec3 center = (model->data.vertices[model->data.indices[i]].position + 
                                    model->data.vertices[model->data.indices[i+1]].position + 
                                    model->data.vertices[model->data.indices[i+2]].position) / 3.0f;
-                center += model->offset;
+                center = center * s + model->offset;
                 qglviewer::Vec screenPos = camera()->projectedCoordinatesOf(qglviewer::Vec(center.x, center.y, center.z));
                 if (screenPos.z >= 0.0 && screenPos.z <= 1.0) {
                     drawText((int)screenPos.x, (int)screenPos.y, QString::number(i / 3));
@@ -300,7 +327,8 @@ void Viewer::drawBB() {
     // Per-mesh red boxes
     glColor3f(1.0f, 0.0f, 0.0f);
     for (const auto& model : models) {
-        drawBox(model->data.minBB + model->offset, model->data.maxBB + model->offset);
+        float s = normalizeScale ? model->scale : 1.0f;
+        drawBox(model->data.minBB * s + model->offset, model->data.maxBB * s + model->offset);
     }
 
     // Global blue box
