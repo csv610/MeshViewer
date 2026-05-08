@@ -1,0 +1,61 @@
+name: C++ CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {
+              name: "Ubuntu Latest GCC",
+              os: ubuntu-latest,
+              build_type: "Release",
+              cc: "gcc",
+              cxx: "g++"
+            }
+          - {
+              name: "macOS Latest Clang",
+              os: macos-latest,
+              build_type: "Release",
+              cc: "clang",
+              cxx: "clang++"
+            }
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libassimp-dev libglm-dev qt6-base-dev qt6-base-private-dev libqglviewer-dev-qt6
+
+    - name: Install Dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install assimp glm qt
+        # libQGLViewer often needs manual build on macOS, 
+        # for CI we might need a specific tap or build from source if not found.
+
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} \
+          -DCMAKE_C_COMPILER=${{ matrix.config.cc }}
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.config.build_type }}
+
+    - name: Run Tests
+      run: |
+        cd build
+        ctest --output-on-failure

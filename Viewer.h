@@ -46,6 +46,12 @@ public:
     double getFPS() const { return 1000.0 / lastFrameTime; }
     double getFrameTime() const { return lastFrameTime; }
 
+    // Test accessors
+    const std::vector<std::shared_ptr<MeshModel>>& getModels() const { return models; }
+    glm::vec3 getGlobalMinBB() const { return globalMinBB; }
+    glm::vec3 getGlobalMaxBB() const { return globalMaxBB; }
+    bool isTestMode = false;
+
 protected:
     virtual void draw() override;
     virtual void init() override;

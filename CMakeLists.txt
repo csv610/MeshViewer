@@ -9,6 +9,16 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+# Testing
+include(FetchContent)
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.4.0
+)
+FetchContent_MakeAvailable(Catch2)
+enable_testing()
+
 # Find Qt6
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets OpenGLWidgets OpenGL Xml Concurrent)
 
@@ -27,23 +37,22 @@ else()
     message(FATAL_ERROR "QGLViewer not found. Please set QGLVIEWER_INCLUDE_DIR and QGLVIEWER_LIBRARY.")
 endif()
 
-add_executable(meshviewer
-    main.cpp
+add_library(meshviewer_core STATIC
     MainWindow.cpp
     MainWindow.h
     Viewer.cpp
     Viewer.h
     Mesh.cpp
     Mesh.h
-    resources.qrc
 )
 
-target_include_directories(meshviewer PRIVATE 
+target_include_directories(meshviewer_core PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${QGLVIEWER_INCLUDE_DIR}
     ${ASSIMP_INCLUDE_DIRS}
 )
 
-target_link_libraries(meshviewer PRIVATE
+target_link_libraries(meshviewer_core PUBLIC
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
@@ -57,5 +66,16 @@ target_link_libraries(meshviewer PRIVATE
 )
 
 if(APPLE)
-    target_link_libraries(meshviewer PRIVATE "-framework OpenGL")
+    target_link_libraries(meshviewer_core PUBLIC "-framework OpenGL")
 endif()
+
+add_executable(meshviewer
+    main.cpp
+    resources.qrc
+)
+
+target_link_libraries(meshviewer PRIVATE
+    meshviewer_core
+)
+
+add_subdirectory(tests)

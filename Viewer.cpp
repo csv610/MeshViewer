@@ -22,7 +22,9 @@ void Viewer::addMesh(const Mesh& m, const QString& name) {
     float maxDim = std::max({dims.x, dims.y, dims.z});
     model->scale = (maxDim > 0) ? (targetSize / maxDim) : 1.0f;
 
-    setupModelGPU(*model);
+    if (!isTestMode) {
+        setupModelGPU(*model);
+    }
     models.push_back(model);
     
     updateLayout();
