@@ -3,8 +3,17 @@
 
 #include <QMainWindow>
 #include <QFutureWatcher>
-#include <QProgressDialog>
+#include <QMutexLocker>
+#include <memory>
+#include <QMap>
 #include "Viewer.h"
+
+struct PendingMesh {
+    Mesh mesh;
+    QString filename;
+    bool ready = false;
+    bool success = false;
+};
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -20,7 +29,7 @@ private slots:
     void toggleVertexLabels(bool checked);
     void toggleFaceLabels(bool checked);
     void toggleBB(bool checked);
-    void onMeshLoaded();
+    void processReadyMeshes();
     void clearCache();
     void toggleShaderMode(bool checked);
     void updateBenchmark();
@@ -28,10 +37,11 @@ private slots:
 private:
     Viewer* viewer;
     Mesh mesh;
-    QFutureWatcher<bool> watcher;
-    QProgressDialog* progressDialog;
-    QString pendingFilename;
+    QMutex meshMutex;
+    QList<std::shared_ptr<PendingMesh>> loadQueue;
+    QMap<QString, Mesh> loadedMeshesCache; // Cache for the current session
     QTimer* benchmarkTimer;
+    QString lastLoadedFilename;
 };
 
 #endif

@@ -7,14 +7,31 @@
 #include <QOpenGLVertexArrayObject>
 #include <QElapsedTimer>
 #include <QGLViewer/qglviewer.h>
+#include <memory>
 #include "Mesh.h"
+
+struct MeshModel {
+    Mesh data;
+    std::unique_ptr<QOpenGLBuffer> vbo;
+    std::unique_ptr<QOpenGLBuffer> ibo;
+    std::unique_ptr<QOpenGLVertexArrayObject> vao;
+    bool gpuReady = false;
+    QString name;
+    glm::vec3 offset = glm::vec3(0.0f);
+
+    MeshModel() : 
+        vbo(std::make_unique<QOpenGLBuffer>(QOpenGLBuffer::VertexBuffer)),
+        ibo(std::make_unique<QOpenGLBuffer>(QOpenGLBuffer::IndexBuffer)),
+        vao(std::make_unique<QOpenGLVertexArrayObject>()) {}
+};
 
 class Viewer : public QGLViewer, protected QOpenGLFunctions {
 public:
     Viewer(QWidget* parent = nullptr);
     ~Viewer();
 
-    void setMesh(const Mesh& mesh);
+    void addMesh(const Mesh& mesh, const QString& name = "Mesh");
+    void clearScene();
     
     bool showWireframe = false;
     bool showNormals = false;
@@ -31,19 +48,21 @@ protected:
     virtual void init() override;
 
 private:
-    Mesh mesh;
-    QOpenGLBuffer vbo;
-    QOpenGLBuffer ibo;
-    QOpenGLVertexArrayObject vao;
+    std::vector<std::shared_ptr<MeshModel>> models;
     QOpenGLShaderProgram shaderProgram;
 
-    void setupBuffers();
-    void setupVAO();
-    void drawMeshVBO();    // Legacy
-    void drawMeshShaders(bool lighting = true, const QVector3D& color = QVector3D(0.8f, 0.8f, 0.8f)); // Modern
+    void setupModelGPU(MeshModel& model);
+    void drawModelShaders(MeshModel& model, bool lighting = true, const QVector3D& color = QVector3D(0.8f, 0.8f, 0.8f));
+    void drawModelVBO(MeshModel& model);
+    
     void drawNormals();
     void drawLabels();
     void drawBB();
+
+    void updateSceneConstraints();
+
+    glm::vec3 globalMinBB;
+    glm::vec3 globalMaxBB;
 
     // Benchmarking
     QElapsedTimer perfTimer;

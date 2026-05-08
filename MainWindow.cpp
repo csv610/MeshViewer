@@ -53,13 +53,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     QCheckBox* shaderCb = addToggle("Use Modern Shaders", Qt::Key_S, &MainWindow::toggleShaderMode);
     shaderCb->setChecked(true);
 
-    connect(&watcher, &QFutureWatcher<bool>::finished, this, &MainWindow::onMeshLoaded);
-
-    progressDialog = new QProgressDialog("Loading mesh...", "Cancel", 0, 0, this);
-    progressDialog->setWindowModality(Qt::WindowModal);
-    progressDialog->setMinimumDuration(500); // Show only if it takes more than 0.5s
-    progressDialog->close();
-
     benchmarkTimer = new QTimer(this);
     connect(benchmarkTimer, &QTimer::timeout, this, &MainWindow::updateBenchmark);
     benchmarkTimer->start(500); // Update status every 500ms
@@ -70,41 +63,64 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 }
 
 void MainWindow::openFile() {
-    QString filename = QFileDialog::getOpenFileName(this, "Open Mesh", "", "Mesh Files (*.obj *.ply *.stl *.off);;All Files (*)");
-    if (!filename.isEmpty()) {
-        loadMesh(filename);
+    QStringList filenames = QFileDialog::getOpenFileNames(this, "Open Mesh(s)", "", "Mesh Files (*.obj *.ply *.stl *.off);;All Files (*)");
+    for (const QString& filename : filenames) {
+        if (!filename.isEmpty()) {
+            loadMesh(filename);
+        }
     }
 }
 
 void MainWindow::loadMesh(const QString& filename) {
-    if (watcher.isRunning()) {
-        statusBar()->showMessage("Wait! Another mesh is still loading...");
+    auto pending = std::make_shared<PendingMesh>();
+    pending->filename = filename;
+    loadQueue.append(pending);
+
+    QFileInfo fi(filename);
+    
+    // Check if we already loaded this in the current session to avoid redundant background work
+    if (loadedMeshesCache.contains(filename)) {
+        pending->mesh = loadedMeshesCache[filename];
+        pending->success = true;
+        pending->ready = true;
+        statusBar()->showMessage("Instant load (cached): " + fi.fileName());
+        processReadyMeshes();
         return;
     }
 
-    pendingFilename = filename;
-    statusBar()->showMessage("Loading mesh: " + filename + " ...");
-    
-    progressDialog->setLabelText("Loading mesh: " + QFileInfo(filename).fileName() + " ...");
-    progressDialog->show();
+    statusBar()->showMessage("Queued: " + fi.fileName());
 
-    QFuture<bool> future = QtConcurrent::run([this, filename]() {
-        return mesh.load(filename.toStdString());
+    QFutureWatcher<bool>* watcher = new QFutureWatcher<bool>(this);
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, pending, filename]() {
+        pending->success = watcher->result();
+        pending->ready = true;
+        if (pending->success) {
+            loadedMeshesCache[filename] = pending->mesh;
+        }
+        watcher->deleteLater();
+        processReadyMeshes();
     });
-    watcher.setFuture(future);
+
+    QFuture<bool> future = QtConcurrent::run([pending, filename]() {
+        if (pending->mesh.load(filename.toStdString())) {
+            return true;
+        }
+        return false;
+    });
+    watcher->setFuture(future);
 }
 
-void MainWindow::onMeshLoaded() {
-    progressDialog->close();
-    if (watcher.result()) {
-        viewer->setMesh(mesh);
-        setWindowTitle("Mesh Viewer - " + pendingFilename);
-        statusBar()->showMessage(QString("Loaded: %1 | Vertices: %2 | Faces: %3")
-            .arg(pendingFilename)
-            .arg(mesh.vertices.size())
-            .arg(mesh.indices.size() / 3));
-    } else {
-        statusBar()->showMessage("Failed to load mesh: " + pendingFilename);
+void MainWindow::processReadyMeshes() {
+    while (!loadQueue.isEmpty() && loadQueue.first()->ready) {
+        auto pending = loadQueue.takeFirst();
+        if (pending->success) {
+            mesh = pending->mesh; // Update member for benchmarking
+            lastLoadedFilename = pending->filename;
+            viewer->addMesh(pending->mesh, QFileInfo(pending->filename).fileName());
+            statusBar()->showMessage("Loaded: " + QFileInfo(pending->filename).fileName());
+        } else {
+            statusBar()->showMessage("Failed to load: " + QFileInfo(pending->filename).fileName());
+        }
     }
 }
 
@@ -128,15 +144,15 @@ void MainWindow::updateBenchmark() {
 }
 
 void MainWindow::clearCache() {
-    if (pendingFilename.isEmpty()) {
+    if (lastLoadedFilename.isEmpty()) {
         statusBar()->showMessage("No mesh loaded to clear cache for.");
         return;
     }
 
-    QString cachePath = QString::fromStdString(Mesh::getCachePath(pendingFilename.toStdString()));
+    QString cachePath = QString::fromStdString(Mesh::getCachePath(lastLoadedFilename.toStdString()));
     if (QFile::exists(cachePath)) {
         if (QFile::remove(cachePath)) {
-            statusBar()->showMessage("Cache cleared for: " + QFileInfo(pendingFilename).fileName());
+            statusBar()->showMessage("Cache cleared for: " + QFileInfo(lastLoadedFilename).fileName());
         } else {
             statusBar()->showMessage("Failed to remove cache file.");
         }
