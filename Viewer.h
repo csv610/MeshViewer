@@ -40,7 +40,7 @@ private:
     void setupBuffers();
     void setupVAO();
     void drawMeshVBO();    // Legacy
-    void drawMeshShaders(); // Modern
+    void drawMeshShaders(bool lighting = true, const QVector3D& color = QVector3D(0.8f, 0.8f, 0.8f)); // Modern
     void drawNormals();
     void drawLabels();
     void drawBB();

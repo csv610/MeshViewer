@@ -89,7 +89,10 @@ void Viewer::draw() {
 
     // 1. Shaded Mesh
     if (useShaders && shaderProgram.isLinked()) {
-        drawMeshShaders();
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.0f, 1.0f);
+        drawMeshShaders(true, QVector3D(0.8f, 0.8f, 0.8f));
+        glDisable(GL_POLYGON_OFFSET_FILL);
     } else {
         glEnable(GL_LIGHTING);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -104,15 +107,10 @@ void Viewer::draw() {
     if (showWireframe) {
         glDisable(GL_LIGHTING);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glColor3f(0.0f, 0.0f, 0.0f);
         if (useShaders && shaderProgram.isLinked()) {
-             // We can still use shaders for wireframe by disabling lighting uniform
-             shaderProgram.bind();
-             shaderProgram.setUniformValue("useLighting", false);
-             shaderProgram.setUniformValue("color", QVector3D(0,0,0));
-             drawMeshShaders();
-             shaderProgram.release();
+             drawMeshShaders(false, QVector3D(0.0f, 0.0f, 0.0f));
         } else {
+            glColor3f(0.0f, 0.0f, 0.0f);
             drawMeshVBO();
         }
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -135,7 +133,7 @@ void Viewer::draw() {
     }
 }
 
-void Viewer::drawMeshShaders() {
+void Viewer::drawMeshShaders(bool lighting, const QVector3D& color) {
     shaderProgram.bind();
     
     // Get matrices from libQGLViewer
@@ -152,8 +150,8 @@ void Viewer::drawMeshShaders() {
     shaderProgram.setUniformValue("modelview", mv);
     shaderProgram.setUniformValue("normalMatrix", mv.normalMatrix());
     shaderProgram.setUniformValue("lightPos", QVector3D(0, 0, 10)); // Simple head light
-    shaderProgram.setUniformValue("color", QVector3D(0.8f, 0.8f, 0.8f));
-    shaderProgram.setUniformValue("useLighting", true);
+    shaderProgram.setUniformValue("color", color);
+    shaderProgram.setUniformValue("useLighting", lighting);
     shaderProgram.setUniformValue("useFlatShading", false);
     shaderProgram.setUniformValue("useMatCap", false);
     shaderProgram.setUniformValue("useCurvature", false);
