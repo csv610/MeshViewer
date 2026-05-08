@@ -11,6 +11,7 @@
 #include <QMenuBar>
 #include <QMenu>
 #include <QMessageBox>
+#include <QTimer>
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     viewer = new Viewer(this);
@@ -48,12 +49,20 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     addToggle("Face Labels", Qt::Key_F, &MainWindow::toggleFaceLabels);
     addToggle("Bounding Box", Qt::Key_B, &MainWindow::toggleBB);
 
+    toolBar->addSeparator();
+    QCheckBox* shaderCb = addToggle("Use Modern Shaders", Qt::Key_S, &MainWindow::toggleShaderMode);
+    shaderCb->setChecked(true);
+
     connect(&watcher, &QFutureWatcher<bool>::finished, this, &MainWindow::onMeshLoaded);
 
     progressDialog = new QProgressDialog("Loading mesh...", "Cancel", 0, 0, this);
     progressDialog->setWindowModality(Qt::WindowModal);
     progressDialog->setMinimumDuration(500); // Show only if it takes more than 0.5s
     progressDialog->close();
+
+    benchmarkTimer = new QTimer(this);
+    connect(benchmarkTimer, &QTimer::timeout, this, &MainWindow::updateBenchmark);
+    benchmarkTimer->start(500); // Update status every 500ms
 
     statusBar()->showMessage("Ready.");
     setWindowTitle("Mesh Viewer");
@@ -104,6 +113,19 @@ void MainWindow::toggleNormals(bool checked) { viewer->showNormals = checked; vi
 void MainWindow::toggleVertexLabels(bool checked) { viewer->showVertexLabels = checked; viewer->update(); }
 void MainWindow::toggleFaceLabels(bool checked) { viewer->showFaceLabels = checked; viewer->update(); }
 void MainWindow::toggleBB(bool checked) { viewer->showBoundingBox = checked; viewer->update(); }
+void MainWindow::toggleShaderMode(bool checked) { viewer->useShaders = checked; viewer->update(); }
+
+void MainWindow::updateBenchmark() {
+    if (mesh.vertices.empty()) return;
+
+    QString mode = viewer->useShaders ? "MODERN (Shaders)" : "LEGACY (VBO)";
+    QString stats = QString("[%1] Draw: %2 ms | Est. FPS: %3")
+        .arg(mode)
+        .arg(viewer->getFrameTime(), 0, 'f', 2)
+        .arg(viewer->getFPS(), 0, 'f', 1);
+    
+    statusBar()->showMessage(stats);
+}
 
 void MainWindow::clearCache() {
     if (pendingFilename.isEmpty()) {

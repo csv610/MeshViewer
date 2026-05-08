@@ -22,6 +22,8 @@ private slots:
     void toggleBB(bool checked);
     void onMeshLoaded();
     void clearCache();
+    void toggleShaderMode(bool checked);
+    void updateBenchmark();
 
 private:
     Viewer* viewer;
@@ -29,6 +31,7 @@ private:
     QFutureWatcher<bool> watcher;
     QProgressDialog* progressDialog;
     QString pendingFilename;
+    QTimer* benchmarkTimer;
 };
 
 #endif
