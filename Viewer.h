@@ -36,11 +36,15 @@ public:
     void updateLayout(); // New method to recalculate offsets
     
     bool showWireframe = false;
+    QVector3D edgeColor = QVector3D(0.0f, 0.0f, 0.0f);
+    float edgeThickness = 1.0f;
+    bool antialiasing = true;
     bool showNormals = false;
     bool showVertexLabels = false;
     bool showFaceLabels = false;
     bool showBoundingBox = false;
     bool useShaders = true;
+    bool useFlatShading = false;
     bool normalizeScale = true; // Togglable normalization
 
     double getFPS() const { return 1000.0 / lastFrameTime; }
@@ -61,7 +65,7 @@ private:
     QOpenGLShaderProgram shaderProgram;
 
     void setupModelGPU(MeshModel& model);
-    void drawModelShaders(MeshModel& model, bool lighting = true, const QVector3D& color = QVector3D(0.8f, 0.8f, 0.8f));
+    void drawModelShaders(MeshModel& model, bool lighting = true, const QVector3D& color = QVector3D(0.8f, 0.8f, 0.8f), bool useVertexColors = true);
     void drawModelVBO(MeshModel& model);
     
     void drawNormals();

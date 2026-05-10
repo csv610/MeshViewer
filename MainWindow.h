@@ -25,6 +25,10 @@ public:
 private slots:
     void openFile();
     void toggleWireframe(bool checked);
+    void setEdgeColor();
+    void setEdgeThickness(double value);
+    void toggleAntialiasing(bool checked);
+    void toggleFlatShading(bool checked);
     void toggleNormals(bool checked);
     void toggleVertexLabels(bool checked);
     void toggleFaceLabels(bool checked);

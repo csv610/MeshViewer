@@ -12,6 +12,9 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QTimer>
+#include <QColorDialog>
+#include <QDoubleSpinBox>
+#include <QLabel>
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     viewer = new Viewer(this);
@@ -36,14 +39,38 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
     auto addToggle = [&](const QString& label, const QKeySequence& ks, auto slot) {
         QCheckBox* cb = new QCheckBox(label, this);
-        cb->setShortcut(ks);
-        cb->setToolTip(QString("Shortcut: %1").arg(ks.toString()));
+        if (!ks.isEmpty()) {
+            cb->setShortcut(ks);
+            cb->setToolTip(QString("Shortcut: %1").arg(ks.toString()));
+        }
         connect(cb, &QCheckBox::toggled, this, slot);
         toolBar->addWidget(cb);
         return cb;
     };
 
     addToggle("Wireframe", Qt::Key_W, &MainWindow::toggleWireframe);
+    
+    // Edge controls
+    toolBar->addSeparator();
+    toolBar->addWidget(new QLabel(" Edge: ", this));
+    
+    QPushButton* colorBtn = new QPushButton("Color", this);
+    connect(colorBtn, &QPushButton::clicked, this, &MainWindow::setEdgeColor);
+    toolBar->addWidget(colorBtn);
+
+    QDoubleSpinBox* thicknessSpin = new QDoubleSpinBox(this);
+    thicknessSpin->setRange(0.1, 10.0);
+    thicknessSpin->setSingleStep(0.1);
+    thicknessSpin->setValue(1.0);
+    thicknessSpin->setSuffix(" px");
+    connect(thicknessSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::setEdgeThickness);
+    toolBar->addWidget(thicknessSpin);
+
+    QCheckBox* aaCb = addToggle("AA", QKeySequence(), &MainWindow::toggleAntialiasing);
+    aaCb->setChecked(true);
+
+    toolBar->addSeparator();
+    addToggle("Flat Shading", Qt::Key_P, &MainWindow::toggleFlatShading);
     addToggle("Normals", Qt::Key_L, &MainWindow::toggleNormals);
     addToggle("Vertex Labels", Qt::Key_V, &MainWindow::toggleVertexLabels);
     addToggle("Face Labels", Qt::Key_F, &MainWindow::toggleFaceLabels);
@@ -61,7 +88,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
     statusBar()->showMessage("Ready.");
     setWindowTitle("Mesh Viewer");
-    resize(1000, 1000);
+    resize(1200, 1000);
 }
 
 void MainWindow::openFile() {
@@ -132,6 +159,26 @@ void MainWindow::toggleNormalizeScale(bool checked) {
 }
 
 void MainWindow::toggleWireframe(bool checked) { viewer->showWireframe = checked; viewer->update(); }
+
+void MainWindow::setEdgeColor() {
+    QColor color = QColorDialog::getColor(QColor::fromRgbF(viewer->edgeColor.x(), viewer->edgeColor.y(), viewer->edgeColor.z()), this, "Select Edge Color");
+    if (color.isValid()) {
+        viewer->edgeColor = QVector3D(color.redF(), color.greenF(), color.blueF());
+        viewer->update();
+    }
+}
+
+void MainWindow::setEdgeThickness(double value) {
+    viewer->edgeThickness = (float)value;
+    viewer->update();
+}
+
+void MainWindow::toggleAntialiasing(bool checked) {
+    viewer->antialiasing = checked;
+    viewer->update();
+}
+
+void MainWindow::toggleFlatShading(bool checked) { viewer->useFlatShading = checked; viewer->update(); }
 void MainWindow::toggleNormals(bool checked) { viewer->showNormals = checked; viewer->update(); }
 void MainWindow::toggleVertexLabels(bool checked) { viewer->showVertexLabels = checked; viewer->update(); }
 void MainWindow::toggleFaceLabels(bool checked) { viewer->showFaceLabels = checked; viewer->update(); }

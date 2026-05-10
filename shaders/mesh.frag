@@ -3,10 +3,12 @@
 
 varying vec3 fragNormal;
 varying vec3 fragPos;
+varying vec4 fragColor;
 varying float fragCurvature;
 
 uniform vec3 lightPos;
 uniform vec3 color;
+uniform bool useVertexColor;
 uniform bool useLighting;
 uniform bool useMatCap;
 uniform bool useFlatShading;
@@ -26,8 +28,10 @@ void main() {
         return;
     }
 
+    vec3 baseColor = useVertexColor ? fragColor.rgb : color;
+
     if (!useLighting) {
-        gl_FragColor = vec4(color, 1.0);
+        gl_FragColor = vec4(baseColor, 1.0);
         return;
     }
 
@@ -39,7 +43,7 @@ void main() {
         n = normalize(fragNormal);
     }
     
-    vec3 finalBaseColor = color;
+    vec3 finalBaseColor = baseColor;
 
     if (useCurvature) {
         // Heatmap: Blue (0) to Red (1)
@@ -61,6 +65,6 @@ void main() {
     vec3 l = normalize(lightPos - fragPos);
     float diff = max(dot(n, l), 0.0);
     vec3 diffuse = diff * finalBaseColor;
-    vec3 ambient = 0.3 * finalBaseColor;
+    vec3 ambient = 0.15 * finalBaseColor;
     gl_FragColor = vec4(ambient + diffuse, 1.0);
 }

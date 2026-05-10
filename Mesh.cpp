@@ -20,6 +20,7 @@ std::string Mesh::getCachePath(const std::string& filename) {
 
 bool Mesh::load(const std::string& filename) {
     std::string cacheFilename = getCachePath(filename);
+    const uint32_t CACHE_MAGIC = 0x4D534832; // MSH2
     
     // Check if cache exists and is newer than the source file
     if (fs::exists(cacheFilename) && fs::exists(filename)) {
@@ -29,27 +30,30 @@ bool Mesh::load(const std::string& filename) {
         if (cacheTime > sourceTime) {
             std::ifstream is(cacheFilename, std::ios::binary);
             if (is) {
-                clear();
-                size_t vSize, iSize;
-                is.read(reinterpret_cast<char*>(&vSize), sizeof(size_t));
-                vertices.resize(vSize);
-                is.read(reinterpret_cast<char*>(vertices.data()), vSize * sizeof(Vertex));
-                
-                is.read(reinterpret_cast<char*>(&iSize), sizeof(size_t));
-                indices.resize(iSize);
-                is.read(reinterpret_cast<char*>(indices.data()), iSize * sizeof(unsigned int));
-                
-                is.read(reinterpret_cast<char*>(&minBB), sizeof(glm::vec3));
-                is.read(reinterpret_cast<char*>(&maxBB), sizeof(glm::vec3));
-                
-                if (is) return true; // Successfully loaded from cache
+                uint32_t magic;
+                is.read(reinterpret_cast<char*>(&magic), sizeof(uint32_t));
+                if (magic == CACHE_MAGIC) {
+                    clear();
+                    size_t vSize, iSize;
+                    is.read(reinterpret_cast<char*>(&vSize), sizeof(size_t));
+                    vertices.resize(vSize);
+                    is.read(reinterpret_cast<char*>(vertices.data()), vSize * sizeof(Vertex));
+                    
+                    is.read(reinterpret_cast<char*>(&iSize), sizeof(size_t));
+                    indices.resize(iSize);
+                    is.read(reinterpret_cast<char*>(indices.data()), iSize * sizeof(unsigned int));
+                    
+                    is.read(reinterpret_cast<char*>(&minBB), sizeof(glm::vec3));
+                    is.read(reinterpret_cast<char*>(&maxBB), sizeof(glm::vec3));
+                    is.read(reinterpret_cast<char*>(&hasVertexColors), sizeof(bool));
+                    
+                    if (is) return true; // Successfully loaded from cache
+                }
             }
         }
     }
 
     Assimp::Importer importer;
-    // aiProcess_JoinIdenticalVertices can be slow for very large meshes, 
-    // but it's often needed for smooth normals.
     const aiScene* scene = importer.ReadFile(filename, 
         aiProcess_Triangulate | 
         aiProcess_GenSmoothNormals | 
@@ -62,8 +66,8 @@ bool Mesh::load(const std::string& filename) {
     }
 
     clear();
+    hasVertexColors = false;
     
-    // Pre-calculate total size to reserve memory
     unsigned int totalVertices = 0;
     unsigned int totalIndices = 0;
     for (unsigned int i = 0; i < scene->mNumMeshes; ++i) {
@@ -82,6 +86,16 @@ bool Mesh::load(const std::string& filename) {
         aiMesh* ai_mesh = scene->mMeshes[i];
         unsigned int baseVertex = static_cast<unsigned int>(vertices.size());
 
+        aiColor4D materialColor(0.8f, 0.8f, 0.8f, 1.0f);
+        if (scene->HasMaterials()) {
+            aiMaterial* mat = scene->mMaterials[ai_mesh->mMaterialIndex];
+            aiGetMaterialColor(mat, AI_MATKEY_COLOR_DIFFUSE, &materialColor);
+        }
+
+        if (ai_mesh->HasVertexColors(0)) hasVertexColors = true;
+        // If we have material colors that are not default grey, we also consider it having colors
+        if (materialColor.r != 0.8f || materialColor.g != 0.8f || materialColor.b != 0.8f) hasVertexColors = true;
+
         for (unsigned int j = 0; j < ai_mesh->mNumVertices; ++j) {
             Vertex v;
             const aiVector3D& pos = ai_mesh->mVertices[j];
@@ -93,10 +107,16 @@ bool Mesh::load(const std::string& filename) {
             } else {
                 v.normal = glm::vec3(0.0f);
             }
+
+            if (ai_mesh->HasVertexColors(0)) {
+                const aiColor4D& col = ai_mesh->mColors[0][j];
+                v.color = glm::vec4(col.r, col.g, col.b, col.a);
+            } else {
+                v.color = glm::vec4(materialColor.r, materialColor.g, materialColor.b, materialColor.a);
+            }
             
             vertices.push_back(v);
             
-            // Inline bounding box update
             if (pos.x < minBB.x) minBB.x = pos.x;
             if (pos.y < minBB.y) minBB.y = pos.y;
             if (pos.z < minBB.z) minBB.z = pos.z;
@@ -116,6 +136,7 @@ bool Mesh::load(const std::string& filename) {
     // Save to cache
     std::ofstream os(cacheFilename, std::ios::binary);
     if (os) {
+        os.write(reinterpret_cast<const char*>(&CACHE_MAGIC), sizeof(uint32_t));
         size_t vSize = vertices.size();
         size_t iSize = indices.size();
         os.write(reinterpret_cast<const char*>(&vSize), sizeof(size_t));
@@ -124,6 +145,7 @@ bool Mesh::load(const std::string& filename) {
         os.write(reinterpret_cast<const char*>(indices.data()), iSize * sizeof(unsigned int));
         os.write(reinterpret_cast<const char*>(&minBB), sizeof(glm::vec3));
         os.write(reinterpret_cast<const char*>(&maxBB), sizeof(glm::vec3));
+        os.write(reinterpret_cast<const char*>(&hasVertexColors), sizeof(bool));
     }
 
     return true;

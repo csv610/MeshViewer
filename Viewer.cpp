@@ -138,6 +138,9 @@ void Viewer::setupModelGPU(MeshModel& model) {
     shaderProgram.enableAttributeArray("normal");
     shaderProgram.setAttributeBuffer("normal", GL_FLOAT, offsetof(Mesh::Vertex, normal), 3, sizeof(Mesh::Vertex));
 
+    shaderProgram.enableAttributeArray("color");
+    shaderProgram.setAttributeBuffer("color", GL_FLOAT, offsetof(Mesh::Vertex, color), 4, sizeof(Mesh::Vertex));
+
     model.vao->release();
     model.vbo->release();
     model.ibo->release();
@@ -157,12 +160,12 @@ void Viewer::draw() {
         if (useShaders && shaderProgram.isLinked()) {
             glEnable(GL_POLYGON_OFFSET_FILL);
             glPolygonOffset(1.0f, 1.0f);
-            drawModelShaders(*model, true, QVector3D(0.8f, 0.8f, 0.8f));
+            drawModelShaders(*model, true, QVector3D(0.7f, 0.7f, 0.7f), model->data.hasVertexColors);
             glDisable(GL_POLYGON_OFFSET_FILL);
         } else {
             glEnable(GL_LIGHTING);
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            glColor3f(0.8f, 0.8f, 0.8f);
+            if (!model->data.hasVertexColors) glColor3f(0.7f, 0.7f, 0.7f);
             glEnable(GL_POLYGON_OFFSET_FILL);
             glPolygonOffset(1.0f, 1.0f);
             drawModelVBO(*model);
@@ -172,14 +175,26 @@ void Viewer::draw() {
         // 2. Overlays
         if (showWireframe) {
             glDisable(GL_LIGHTING);
+            if (antialiasing) {
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                glEnable(GL_LINE_SMOOTH);
+                glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+            } else {
+                glDisable(GL_LINE_SMOOTH);
+            }
+            glLineWidth(edgeThickness);
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
             if (useShaders && shaderProgram.isLinked()) {
-                 drawModelShaders(*model, false, QVector3D(0.0f, 0.0f, 0.0f));
+                 drawModelShaders(*model, false, edgeColor, false);
             } else {
-                glColor3f(0.0f, 0.0f, 0.0f);
+                glColor3f(edgeColor.x(), edgeColor.y(), edgeColor.z());
                 drawModelVBO(*model);
             }
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            glLineWidth(1.0f);
+            glDisable(GL_LINE_SMOOTH);
+            glDisable(GL_BLEND);
         }
     }
 
@@ -200,7 +215,7 @@ void Viewer::draw() {
     }
 }
 
-void Viewer::drawModelShaders(MeshModel& model, bool lighting, const QVector3D& color) {
+void Viewer::drawModelShaders(MeshModel& model, bool lighting, const QVector3D& color, bool useVertexColors) {
     shaderProgram.bind();
     
     GLdouble modelview[16], projection[16];
@@ -218,10 +233,11 @@ void Viewer::drawModelShaders(MeshModel& model, bool lighting, const QVector3D& 
     shaderProgram.setUniformValue("mvp", p * mv);
     shaderProgram.setUniformValue("modelview", mv);
     shaderProgram.setUniformValue("normalMatrix", mv.normalMatrix());
-    shaderProgram.setUniformValue("lightPos", QVector3D(0, 0, 10));
+    shaderProgram.setUniformValue("lightPos", QVector3D(100, 100, 100));
     shaderProgram.setUniformValue("color", color);
+    shaderProgram.setUniformValue("useVertexColor", useVertexColors);
     shaderProgram.setUniformValue("useLighting", lighting);
-    shaderProgram.setUniformValue("useFlatShading", false);
+    shaderProgram.setUniformValue("useFlatShading", useFlatShading);
     shaderProgram.setUniformValue("useMatCap", false);
     shaderProgram.setUniformValue("useCurvature", false);
     shaderProgram.setUniformValue("usePicking", false);
@@ -243,14 +259,17 @@ void Viewer::drawModelVBO(MeshModel& model) {
 
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
+    if (model.data.hasVertexColors) glEnableClientState(GL_COLOR_ARRAY);
 
     glVertexPointer(3, GL_FLOAT, sizeof(Mesh::Vertex), (void*)offsetof(Mesh::Vertex, position));
     glNormalPointer(GL_FLOAT, sizeof(Mesh::Vertex), (void*)offsetof(Mesh::Vertex, normal));
+    if (model.data.hasVertexColors) glColorPointer(4, GL_FLOAT, sizeof(Mesh::Vertex), (void*)offsetof(Mesh::Vertex, color));
 
     glDrawElements(GL_TRIANGLES, model.data.indices.size(), GL_UNSIGNED_INT, 0);
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_NORMAL_ARRAY);
+    if (model.data.hasVertexColors) glDisableClientState(GL_COLOR_ARRAY);
 
     model.ibo->release();
     model.vbo->release();
