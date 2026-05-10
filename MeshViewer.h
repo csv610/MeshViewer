@@ -1,5 +1,5 @@
-#ifndef VIEWER_H
-#define VIEWER_H
+#ifndef MESH_VIEWER_H
+#define MESH_VIEWER_H
 
 #include <QOpenGLBuffer>
 #include <QOpenGLFunctions>
@@ -26,10 +26,10 @@ struct MeshModel {
         vao(std::make_unique<QOpenGLVertexArrayObject>()) {}
 };
 
-class Viewer : public QGLViewer, protected QOpenGLFunctions {
+class MeshViewer : public QGLViewer, protected QOpenGLFunctions {
 public:
-    Viewer(QWidget* parent = nullptr);
-    ~Viewer();
+    MeshViewer(QWidget* parent = nullptr);
+    ~MeshViewer();
 
     void addMesh(const Mesh& mesh, const QString& name = "Mesh");
     void clearScene();

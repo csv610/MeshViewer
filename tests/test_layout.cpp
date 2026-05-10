@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
-#include "../Viewer.h"
+#include "../MeshViewer.h"
 #include <QApplication>
 
 // Helper to ensure QApplication exists
@@ -12,9 +12,9 @@ static void ensureApp() {
     }
 }
 
-TEST_CASE("Viewer Layout Logic", "[layout]") {
+TEST_CASE("MeshViewer Layout Logic", "[layout]") {
     ensureApp();
-    Viewer viewer;
+    MeshViewer viewer;
     viewer.isTestMode = true;
 
     Mesh m1;

@@ -1,16 +1,16 @@
-#include "Viewer.h"
+#include "MeshViewer.h"
 #include <OpenGL/gl.h>
 #include <QMatrix4x4>
 #include <iostream>
 
-Viewer::Viewer(QWidget* parent) : QGLViewer(parent) {}
+MeshViewer::MeshViewer(QWidget* parent) : QGLViewer(parent) {}
 
-Viewer::~Viewer() {
+MeshViewer::~MeshViewer() {
     makeCurrent();
     clearScene();
 }
 
-void Viewer::addMesh(const Mesh& m, const QString& name) {
+void MeshViewer::addMesh(const Mesh& m, const QString& name) {
     makeCurrent();
     auto model = std::make_shared<MeshModel>();
     model->data = m;
@@ -30,7 +30,7 @@ void Viewer::addMesh(const Mesh& m, const QString& name) {
     updateLayout();
 }
 
-void Viewer::updateLayout() {
+void MeshViewer::updateLayout() {
     if (models.empty()) return;
 
     float currentLeftEdge = 0.0f;
@@ -68,7 +68,7 @@ void Viewer::updateLayout() {
     update();
 }
 
-void Viewer::clearScene() {
+void MeshViewer::clearScene() {
     makeCurrent();
     for(auto& model : models) {
         model->vao->destroy();
@@ -79,7 +79,7 @@ void Viewer::clearScene() {
     update();
 }
 
-void Viewer::updateSceneConstraints() {
+void MeshViewer::updateSceneConstraints() {
     if (models.empty()) return;
 
     globalMinBB = glm::vec3(std::numeric_limits<float>::max());
@@ -98,7 +98,7 @@ void Viewer::updateSceneConstraints() {
     showEntireScene();
 }
 
-void Viewer::init() {
+void MeshViewer::init() {
     initializeOpenGLFunctions();
     
     // Load shaders
@@ -118,7 +118,7 @@ void Viewer::init() {
     glEnable(GL_DEPTH_TEST);
 }
 
-void Viewer::setupModelGPU(MeshModel& model) {
+void MeshViewer::setupModelGPU(MeshModel& model) {
     model.vbo->create();
     model.vbo->bind();
     model.vbo->allocate(model.data.vertices.data(), model.data.vertices.size() * sizeof(Mesh::Vertex));
@@ -147,7 +147,7 @@ void Viewer::setupModelGPU(MeshModel& model) {
     model.gpuReady = true;
 }
 
-void Viewer::draw() {
+void MeshViewer::draw() {
     if (models.empty()) return;
 
     perfTimer.start();
@@ -215,7 +215,7 @@ void Viewer::draw() {
     }
 }
 
-void Viewer::drawModelShaders(MeshModel& model, bool lighting, const QVector3D& color, bool useVertexColors) {
+void MeshViewer::drawModelShaders(MeshModel& model, bool lighting, const QVector3D& color, bool useVertexColors) {
     shaderProgram.bind();
     
     GLdouble modelview[16], projection[16];
@@ -249,7 +249,7 @@ void Viewer::drawModelShaders(MeshModel& model, bool lighting, const QVector3D& 
     shaderProgram.release();
 }
 
-void Viewer::drawModelVBO(MeshModel& model) {
+void MeshViewer::drawModelVBO(MeshModel& model) {
     glPushMatrix();
     glTranslatef(model.offset.x, model.offset.y, model.offset.z);
     if (normalizeScale) glScalef(model.scale, model.scale, model.scale);
@@ -277,7 +277,7 @@ void Viewer::drawModelVBO(MeshModel& model) {
     glPopMatrix();
 }
 
-void Viewer::drawNormals() {
+void MeshViewer::drawNormals() {
     glDisable(GL_LIGHTING);
     glColor3f(0.0f, 1.0f, 0.0f);
     glBegin(GL_LINES);
@@ -293,7 +293,7 @@ void Viewer::drawNormals() {
     glEnd();
 }
 
-void Viewer::drawLabels() {
+void MeshViewer::drawLabels() {
     glDisable(GL_LIGHTING);
     const size_t maxLabels = 1000;
     size_t totalLabelCount = 0;
@@ -331,7 +331,7 @@ void Viewer::drawLabels() {
     }
 }
 
-void Viewer::drawBB() {
+void MeshViewer::drawBB() {
     glDisable(GL_LIGHTING);
     
     auto drawBox = [](const glm::vec3& min, const glm::vec3& max) {

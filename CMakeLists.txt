@@ -40,8 +40,8 @@ endif()
 add_library(meshviewer_core STATIC
     MainWindow.cpp
     MainWindow.h
-    Viewer.cpp
-    Viewer.h
+    MeshViewer.cpp
+    MeshViewer.h
     Mesh.cpp
     Mesh.h
 )

@@ -17,7 +17,7 @@
 #include <QLabel>
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
-    viewer = new Viewer(this);
+    viewer = new MeshViewer(this);
     setCentralWidget(viewer);
 
     // Menu Bar

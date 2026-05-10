@@ -6,7 +6,7 @@
 #include <QMutexLocker>
 #include <memory>
 #include <QMap>
-#include "Viewer.h"
+#include "MeshViewer.h"
 
 struct PendingMesh {
     Mesh mesh;
@@ -40,7 +40,7 @@ private slots:
     void updateBenchmark();
 
 private:
-    Viewer* viewer;
+    MeshViewer* viewer;
     Mesh mesh;
     QMutex meshMutex;
     QList<std::shared_ptr<PendingMesh>> loadQueue;
