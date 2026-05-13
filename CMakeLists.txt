@@ -26,37 +26,8 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets OpenGLWidgets OpenGL Xml C
 find_package(assimp REQUIRED)
 find_package(glm REQUIRED)
 
-# Find QGLViewer
-# Users might need to provide -DCMAKE_PREFIX_PATH if it's in a non-standard location.
-# Common locations: /usr/local (Homebrew), /opt/homebrew (Apple Silicon Homebrew)
-find_path(QGLVIEWER_INCLUDE_DIR QGLViewer/qglviewer.h
-    PATHS
-        /usr/local/include
-        /opt/homebrew/include
-        ${CMAKE_PREFIX_PATH}/include
-    DOC "QGLViewer include directory"
-)
-
-find_library(QGLVIEWER_LIBRARY NAMES QGLViewer QGLViewer-qt6 QGLViewer-qt5
-    PATHS
-        /usr/local/lib
-        /usr/local/lib/cmake/QGLViewer
-        /opt/homebrew/lib
-        /opt/homebrew/lib/cmake/QGLViewer
-        ${CMAKE_PREFIX_PATH}/lib
-    DOC "QGLViewer library"
-)
-
-if (QGLVIEWER_INCLUDE_DIR AND QGLVIEWER_LIBRARY)
-    message(STATUS "Found QGLViewer: ${QGLVIEWER_LIBRARY}")
-    message(STATUS "QGLViewer include: ${QGLVIEWER_INCLUDE_DIR}")
-else()
-    message(FATAL_ERROR "QGLViewer not found. Please install via 'brew install qglviewer' or set -DCMAKE_PREFIX_PATH")
-endif()
-
-# Convert to absolute paths
-get_filename_component(QGLVIEWER_INCLUDE_DIR "${QGLVIEWER_INCLUDE_DIR}" ABSOLUTE)
-get_filename_component(QGLVIEWER_LIBRARY "${QGLVIEWER_LIBRARY}" ABSOLUTE)
+# QGLViewer as submodule
+add_subdirectory(external/libQGLViewer)
 
 add_library(meshviewer_core STATIC
     src/MainWindow.cpp
@@ -69,9 +40,7 @@ add_library(meshviewer_core STATIC
 
 target_include_directories(meshviewer_core PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${QGLVIEWER_INCLUDE_DIR}
     ${ASSIMP_INCLUDE_DIRS}
-    /var/folders/kb/dq9v0bpn67gb64fkjtrvs38c0000gn/T/opencode/libQGLViewer
 )
 
 target_link_libraries(meshviewer_core PUBLIC
@@ -84,7 +53,7 @@ target_link_libraries(meshviewer_core PUBLIC
     Qt6::Concurrent
     assimp::assimp
     glm::glm
-    ${QGLVIEWER_LIBRARY}
+    QGLViewer
 )
 
 if(APPLE)
