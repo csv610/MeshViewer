@@ -413,11 +413,7 @@ void MeshViewer::drawLabels() {
                 const auto& f = model->data.faces[i];
                 if (f.nodes.size() < 3) continue;
                 
-                glm::vec3 center(0.0f);
-                for (unsigned int idx : f.nodes) {
-                    center += model->data.vertices[idx].position;
-                }
-                center /= (float)f.nodes.size();
+                glm::vec3 center = f.calculateCenter(model->data.vertices);
                 center = center * s + model->offset;
                 
                 qglviewer::Vec screenPos = camera()->projectedCoordinatesOf(qglviewer::Vec(center.x, center.y, center.z));

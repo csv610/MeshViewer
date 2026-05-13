@@ -17,11 +17,11 @@ TEST_CASE("MeshViewer Layout Logic", "[layout]") {
     MeshViewer viewer;
     viewer.isTestMode = true;
 
-    Mesh m1;
+    RenderMesh m1;
     m1.minBB = glm::vec3(0, 0, 0);
     m1.maxBB = glm::vec3(10, 10, 10);
     
-    Mesh m2;
+    RenderMesh m2;
     m2.minBB = glm::vec3(0, 0, 0);
     m2.maxBB = glm::vec3(5, 5, 5);
 

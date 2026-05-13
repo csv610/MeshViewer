@@ -3,8 +3,9 @@
 #include "RenderMesh.h"
 #include <fstream>
 #include <filesystem>
+#include <numeric>
 
-TEST_CASE("Mesh Loading and Bounding Box", "[mesh]") {
+TEST_CASE("RenderMesh Loading and Bounding Box", "[mesh]") {
     // 1. Create a dummy OBJ file (a simple cube)
     std::string filename = "test_cube.obj";
     std::ofstream out(filename);
@@ -20,12 +21,15 @@ TEST_CASE("Mesh Loading and Bounding Box", "[mesh]") {
         << "f 5 6 7\n"; // Uses vertices from both Z=0 and Z=1
     out.close();
 
-    Mesh m;
+    RenderMesh m;
     
     SECTION("Load valid mesh") {
         REQUIRE(m.load(filename) == true);
-        REQUIRE(m.vertices.size() >= 6); // At least vertices used in faces
-        REQUIRE(m.indices.size() == 6); // 2 triangles
+        REQUIRE(m.vertices.size() >= 6); 
+        REQUIRE(m.faces.size() == 2);
+        size_t totalIndices = std::accumulate(m.faces.begin(), m.faces.end(), 0ULL, 
+            [](size_t sum, const RenderFace& f) { return sum + f.nodes.size(); });
+        REQUIRE(totalIndices == 6);
     }
 
     SECTION("Bounding Box Calculation") {
@@ -68,7 +72,7 @@ TEST_CASE("Vertex Colors", "[mesh]") {
         << "3 0 1 2\n";
     out.close();
 
-    Mesh m;
+    RenderMesh m;
     REQUIRE(m.load(filename) == true);
     REQUIRE(m.hasVertexColors == true);
     // Assimp might not give exactly 1.0f due to float conversion, but close enough
@@ -79,9 +83,9 @@ TEST_CASE("Vertex Colors", "[mesh]") {
     std::filesystem::remove(filename);
 }
 
-TEST_CASE("Mesh Caching Logic", "[mesh]") {
+TEST_CASE("RenderMesh Caching Logic", "[mesh]") {
     std::string filename = "dummy.obj";
-    std::string cachePath = Mesh::getCachePath(filename);
+    std::string cachePath = RenderMesh::getCachePath(filename);
     
     REQUIRE(!cachePath.empty());
     REQUIRE(cachePath.find("meshviewer_") != std::string::npos);
