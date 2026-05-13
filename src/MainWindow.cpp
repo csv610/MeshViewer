@@ -48,39 +48,21 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         return cb;
     };
 
-    addToggle("Wireframe", Qt::Key_W, &MainWindow::toggleWireframe);
+    QCheckBox* facesCb = addToggle("Faces", Qt::Key_F, &MainWindow::toggleFacesMode);
+    facesCb->setChecked(true);
     
-    // Edge controls
-    toolBar->addSeparator();
-    toolBar->addWidget(new QLabel(" Edge: ", this));
+    QCheckBox* pointsCb = addToggle("Points", Qt::Key_P, &MainWindow::togglePointsMode);
+    pointsCb->setChecked(false);
     
-    QPushButton* colorBtn = new QPushButton("Color", this);
-    connect(colorBtn, &QPushButton::clicked, this, &MainWindow::setEdgeColor);
-    toolBar->addWidget(colorBtn);
-
-    QDoubleSpinBox* thicknessSpin = new QDoubleSpinBox(this);
-    thicknessSpin->setRange(0.1, 10.0);
-    thicknessSpin->setSingleStep(0.1);
-    thicknessSpin->setValue(1.0);
-    thicknessSpin->setSuffix(" px");
-    connect(thicknessSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::setEdgeThickness);
-    toolBar->addWidget(thicknessSpin);
-
-    QCheckBox* aaCb = addToggle("AA", QKeySequence(), &MainWindow::toggleAntialiasing);
-    aaCb->setChecked(true);
+    QCheckBox* edgesCb = addToggle("Edges", Qt::Key_E, &MainWindow::toggleEdgesMode);
+    edgesCb->setChecked(false);
 
     toolBar->addSeparator();
-    addToggle("Flat Shading", Qt::Key_P, &MainWindow::toggleFlatShading);
-    addToggle("Normals", Qt::Key_L, &MainWindow::toggleNormals);
-    addToggle("Vertex Labels", Qt::Key_V, &MainWindow::toggleVertexLabels);
-    addToggle("Face Labels", Qt::Key_F, &MainWindow::toggleFaceLabels);
-    addToggle("Bounding Box", Qt::Key_B, &MainWindow::toggleBB);
-    QCheckBox* normCb = addToggle("Normalize Scale", Qt::Key_N, &MainWindow::toggleNormalizeScale);
-    normCb->setChecked(true);
+    QCheckBox* bbCb = addToggle("BBox", Qt::Key_B, &MainWindow::toggleBB);
+    bbCb->setChecked(false);
 
-    toolBar->addSeparator();
-    QCheckBox* shaderCb = addToggle("Use Modern Shaders", Qt::Key_S, &MainWindow::toggleShaderMode);
-    shaderCb->setChecked(true);
+    QCheckBox* normsCb = addToggle("Norms", Qt::Key_N, &MainWindow::toggleNormals);
+    normsCb->setChecked(false);
 
     benchmarkTimer = new QTimer(this);
     connect(benchmarkTimer, &QTimer::timeout, this, &MainWindow::updateBenchmark);
@@ -158,6 +140,73 @@ void MainWindow::toggleNormalizeScale(bool checked) {
     viewer->updateLayout(); 
 }
 
+void MainWindow::toggleFaceColors(bool checked) { 
+    viewer->useFaceColors = checked; 
+    if (checked && !viewer->getModels().empty()) {
+        size_t idx = viewer->getModels().size() - 1;
+        viewer->rebuildWithFaceColors(idx);
+    }
+    viewer->update(); 
+}
+
+void MainWindow::generateRandomFaceColors() {
+    if (viewer->getModels().empty()) {
+        statusBar()->showMessage("No mesh loaded.");
+        return;
+    }
+    
+    const auto& models = viewer->getModels();
+    for (size_t i = 0; i < models.size(); ++i) {
+        models[i]->data.generateRandomFaceColors();
+        models[i]->data.enableFaceColors();
+        if (viewer->useFaceColors) {
+            viewer->rebuildWithFaceColors(i);
+        } else {
+            viewer->useFaceColors = true;
+            viewer->rebuildWithFaceColors(i);
+        }
+    }
+    viewer->update();
+    statusBar()->showMessage("Generated random face colors.");
+}
+
+void MainWindow::generateRandomVertexColors() {
+    if (viewer->getModels().empty()) {
+        statusBar()->showMessage("No mesh loaded.");
+        return;
+    }
+    
+    const auto& models = viewer->getModels();
+    for (size_t i = 0; i < models.size(); ++i) {
+        models[i]->data.generateRandomVertexColors();
+    }
+    viewer->useVertexColors = true;
+    viewer->useFaceColors = false;
+    viewer->update();
+    statusBar()->showMessage("Generated random vertex colors.");
+}
+
+void MainWindow::toggleVertexColors(bool checked) {
+    viewer->useVertexColors = checked;
+    if (checked) viewer->useFaceColors = false;
+    viewer->update();
+}
+
+void MainWindow::toggleFacesMode(bool checked) {
+    viewer->showFaces = checked;
+    viewer->update();
+}
+
+void MainWindow::togglePointsMode(bool checked) {
+    viewer->showPoints = checked;
+    viewer->update();
+}
+
+void MainWindow::toggleEdgesMode(bool checked) {
+    viewer->showEdges = checked;
+    viewer->update();
+}
+
 void MainWindow::toggleWireframe(bool checked) { viewer->showWireframe = checked; viewer->update(); }
 
 void MainWindow::setEdgeColor() {
@@ -212,5 +261,28 @@ void MainWindow::clearCache() {
         }
     } else {
         statusBar()->showMessage("No cache file found for this mesh.");
+    }
+}
+
+void MainWindow::keyPressEvent(QKeyEvent* event) {
+    switch (event->key()) {
+        case Qt::Key_1:
+            viewer->pointSize = qMax(1.0f, viewer->pointSize - 1.0f);
+            viewer->update();
+            break;
+        case Qt::Key_2:
+            viewer->pointSize = viewer->pointSize + 1.0f;
+            viewer->update();
+            break;
+        case Qt::Key_3:
+            viewer->edgeThickness = qMax(1.0f, viewer->edgeThickness - 1.0f);
+            viewer->update();
+            break;
+        case Qt::Key_4:
+            viewer->edgeThickness = viewer->edgeThickness + 1.0f;
+            viewer->update();
+            break;
+        default:
+            QMainWindow::keyPressEvent(event);
     }
 }

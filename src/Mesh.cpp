@@ -4,6 +4,7 @@
 #include <limits>
 #include <fstream>
 #include <filesystem>
+#include <random>
 
 namespace fs = std::filesystem;
 
@@ -46,6 +47,12 @@ bool Mesh::load(const std::string& filename) {
                     is.read(reinterpret_cast<char*>(&minBB), sizeof(glm::vec3));
                     is.read(reinterpret_cast<char*>(&maxBB), sizeof(glm::vec3));
                     is.read(reinterpret_cast<char*>(&hasVertexColors), sizeof(bool));
+                    is.read(reinterpret_cast<char*>(&hasFaceColors), sizeof(bool));
+                    
+                    size_t fcSize;
+                    is.read(reinterpret_cast<char*>(&fcSize), sizeof(size_t));
+                    faceColors.resize(fcSize);
+                    is.read(reinterpret_cast<char*>(faceColors.data()), fcSize * sizeof(glm::vec4));
                     
                     if (is) return true; // Successfully loaded from cache
                 }
@@ -146,12 +153,61 @@ bool Mesh::load(const std::string& filename) {
         os.write(reinterpret_cast<const char*>(&minBB), sizeof(glm::vec3));
         os.write(reinterpret_cast<const char*>(&maxBB), sizeof(glm::vec3));
         os.write(reinterpret_cast<const char*>(&hasVertexColors), sizeof(bool));
+        os.write(reinterpret_cast<const char*>(&hasFaceColors), sizeof(bool));
+        
+        size_t fcSize = faceColors.size();
+        os.write(reinterpret_cast<const char*>(&fcSize), sizeof(size_t));
+        os.write(reinterpret_cast<const char*>(faceColors.data()), fcSize * sizeof(glm::vec4));
     }
 
     return true;
 }
 
+void Mesh::generateRandomFaceColors() {
+    if (indices.empty()) return;
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    
+    size_t numFaces = indices.size() / 3;
+    faceColors.clear();
+    faceColors.reserve(numFaces);
+    
+    for (size_t i = 0; i < numFaces; ++i) {
+        float r = dist(gen);
+        float g = dist(gen);
+        float b = dist(gen);
+        faceColors.push_back(glm::vec4(r, g, b, 1.0f));
+    }
+    
+    hasFaceColors = true;
+}
+
+void Mesh::generateRandomVertexColors() {
+    if (vertices.empty()) return;
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    
+    for (auto& v : vertices) {
+        v.color = glm::vec4(dist(gen), dist(gen), dist(gen), 1.0f);
+    }
+    
+    hasVertexColors = true;
+}
+
+void Mesh::enableFaceColors() {
+    if (!faceColors.empty()) {
+        hasFaceColors = true;
+    }
+}
+
 void Mesh::clear() {
     vertices.clear();
     indices.clear();
+    faceColors.clear();
+    hasVertexColors = false;
+    hasFaceColors = false;
 }

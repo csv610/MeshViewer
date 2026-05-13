@@ -22,6 +22,9 @@ public:
     MainWindow(QWidget* parent = nullptr);
     void loadMesh(const QString& filename);
 
+protected:
+    void keyPressEvent(QKeyEvent* event) override;
+
 private slots:
     void openFile();
     void toggleWireframe(bool checked);
@@ -34,6 +37,13 @@ private slots:
     void toggleFaceLabels(bool checked);
     void toggleBB(bool checked);
     void toggleNormalizeScale(bool checked);
+    void toggleFaceColors(bool checked);
+    void toggleVertexColors(bool checked);
+    void toggleFacesMode(bool checked);
+    void togglePointsMode(bool checked);
+    void toggleEdgesMode(bool checked);
+    void generateRandomFaceColors();
+    void generateRandomVertexColors();
     void processReadyMeshes();
     void clearCache();
     void toggleShaderMode(bool checked);

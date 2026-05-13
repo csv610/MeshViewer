@@ -17,14 +17,19 @@ struct Mesh {
 
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
+    std::vector<glm::vec4> faceColors;
     
     glm::vec3 minBB;
     glm::vec3 maxBB;
 
     bool hasVertexColors = false;
+    bool hasFaceColors = false;
 
     bool load(const std::string& filename);
     void clear();
+    void generateRandomFaceColors();
+    void generateRandomVertexColors();
+    void enableFaceColors();
     
     static std::string getCachePath(const std::string& filename);
 };

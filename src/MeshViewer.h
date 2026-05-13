@@ -33,11 +33,12 @@ public:
 
     void addMesh(const Mesh& mesh, const QString& name = "Mesh");
     void clearScene();
-    void updateLayout(); // New method to recalculate offsets
+    void updateLayout();
     
     bool showWireframe = false;
-    QVector3D edgeColor = QVector3D(0.0f, 0.0f, 0.0f);
+    QVector3D edgeColor = QVector3D(1.0f, 0.41f, 0.71f);
     float edgeThickness = 1.0f;
+    float pointSize = 3.0f;
     bool antialiasing = true;
     bool showNormals = false;
     bool showVertexLabels = false;
@@ -45,16 +46,23 @@ public:
     bool showBoundingBox = false;
     bool useShaders = true;
     bool useFlatShading = false;
-    bool normalizeScale = true; // Togglable normalization
+    bool normalizeScale = true;
+    bool useFaceColors = false;
+    bool useVertexColors = true;
+    
+    bool showFaces = true;
+    bool showPoints = false;
+    bool showEdges = false;
 
     double getFPS() const { return 1000.0 / lastFrameTime; }
     double getFrameTime() const { return lastFrameTime; }
 
-    // Test accessors
     const std::vector<std::shared_ptr<MeshModel>>& getModels() const { return models; }
     glm::vec3 getGlobalMinBB() const { return globalMinBB; }
     glm::vec3 getGlobalMaxBB() const { return globalMaxBB; }
     bool isTestMode = false;
+
+    void rebuildWithFaceColors(size_t modelIndex);
 
 protected:
     virtual void draw() override;
@@ -77,7 +85,6 @@ private:
     glm::vec3 globalMinBB;
     glm::vec3 globalMaxBB;
 
-    // Benchmarking
     QElapsedTimer perfTimer;
     double lastFrameTime = 0.01;
     int frameCount = 0;

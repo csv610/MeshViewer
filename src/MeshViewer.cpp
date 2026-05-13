@@ -147,6 +147,66 @@ void MeshViewer::setupModelGPU(MeshModel& model) {
     model.gpuReady = true;
 }
 
+void MeshViewer::rebuildWithFaceColors(size_t modelIndex) {
+    if (modelIndex >= models.size()) return;
+    auto& model = models[modelIndex];
+    if (model->data.faceColors.empty()) return;
+    
+    makeCurrent();
+    
+    model->vao->destroy();
+    model->vbo->destroy();
+    model->ibo->destroy();
+    
+    std::vector<Mesh::Vertex> faceColorVertices;
+    faceColorVertices.reserve(model->data.indices.size());
+    
+    for (size_t i = 0; i < model->data.indices.size(); i += 3) {
+        size_t faceIdx = i / 3;
+        if (faceIdx >= model->data.faceColors.size()) break;
+        glm::vec4 fc = model->data.faceColors[faceIdx];
+        
+        for (size_t j = 0; j < 3; ++j) {
+            unsigned int idx = model->data.indices[i + j];
+            Mesh::Vertex v = model->data.vertices[idx];
+            v.color = fc;
+            faceColorVertices.push_back(v);
+        }
+    }
+    
+    model->vbo->create();
+    model->vbo->bind();
+    model->vbo->allocate(faceColorVertices.data(), faceColorVertices.size() * sizeof(Mesh::Vertex));
+    
+    std::vector<unsigned int> newIndices(faceColorVertices.size());
+    for (size_t i = 0; i < faceColorVertices.size(); ++i) {
+        newIndices[i] = static_cast<unsigned int>(i);
+    }
+    
+    model->ibo->create();
+    model->ibo->bind();
+    model->ibo->allocate(newIndices.data(), newIndices.size() * sizeof(unsigned int));
+
+    model->vao->create();
+    model->vao->bind();
+    model->vbo->bind();
+    model->ibo->bind();
+
+    shaderProgram.enableAttributeArray("position");
+    shaderProgram.setAttributeBuffer("position", GL_FLOAT, offsetof(Mesh::Vertex, position), 3, sizeof(Mesh::Vertex));
+    
+    shaderProgram.enableAttributeArray("normal");
+    shaderProgram.setAttributeBuffer("normal", GL_FLOAT, offsetof(Mesh::Vertex, normal), 3, sizeof(Mesh::Vertex));
+
+    shaderProgram.enableAttributeArray("color");
+    shaderProgram.setAttributeBuffer("color", GL_FLOAT, offsetof(Mesh::Vertex, color), 4, sizeof(Mesh::Vertex));
+
+    model->vao->release();
+    model->vbo->release();
+    model->ibo->release();
+    model->gpuReady = true;
+}
+
 void MeshViewer::draw() {
     if (models.empty()) return;
 
@@ -156,37 +216,53 @@ void MeshViewer::draw() {
     for (auto& model : models) {
         if (!model->gpuReady) continue;
 
-        // 1. Shaded Mesh
-        if (useShaders && shaderProgram.isLinked()) {
-            glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(1.0f, 1.0f);
-            drawModelShaders(*model, true, QVector3D(0.7f, 0.7f, 0.7f), model->data.hasVertexColors);
-            glDisable(GL_POLYGON_OFFSET_FILL);
-        } else {
-            glEnable(GL_LIGHTING);
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            if (!model->data.hasVertexColors) glColor3f(0.7f, 0.7f, 0.7f);
-            glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(1.0f, 1.0f);
-            drawModelVBO(*model);
-            glDisable(GL_POLYGON_OFFSET_FILL);
-        }
+        bool useFaceCol = useFaceColors && model->data.hasFaceColors;
+        bool useVertCol = useVertexColors && model->data.hasVertexColors && !useFaceCol;
 
-        // 2. Overlays
-        if (showWireframe) {
+        // 1. Main render based on toggle flags
+        if (showFaces) {
+            if (useShaders && shaderProgram.isLinked()) {
+                glEnable(GL_POLYGON_OFFSET_FILL);
+                glPolygonOffset(1.0f, 1.0f);
+                drawModelShaders(*model, true, QVector3D(0.7f, 0.7f, 0.7f), useVertCol || useFaceCol);
+                glDisable(GL_POLYGON_OFFSET_FILL);
+            } else {
+                glEnable(GL_LIGHTING);
+                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+                if (!useVertCol && !useFaceCol) glColor3f(0.7f, 0.7f, 0.7f);
+                glEnable(GL_POLYGON_OFFSET_FILL);
+                glPolygonOffset(1.0f, 1.0f);
+                drawModelVBO(*model);
+                glDisable(GL_POLYGON_OFFSET_FILL);
+            }
+        }
+        if (showPoints) {
+            glDisable(GL_LIGHTING);
+            glColor3f(0.0f, 1.0f, 0.0f);
+            glPointSize(pointSize);
+            glPushMatrix();
+            glTranslatef(model->offset.x, model->offset.y, model->offset.z);
+            if (normalizeScale) glScalef(model->scale, model->scale, model->scale);
+            model->vbo->bind();
+            glEnableClientState(GL_VERTEX_ARRAY);
+            glVertexPointer(3, GL_FLOAT, sizeof(Mesh::Vertex), (void*)offsetof(Mesh::Vertex, position));
+            glDrawArrays(GL_POINTS, 0, model->data.vertices.size());
+            glDisableClientState(GL_VERTEX_ARRAY);
+            model->vbo->release();
+            glPopMatrix();
+        }
+        if (showEdges) {
             glDisable(GL_LIGHTING);
             if (antialiasing) {
                 glEnable(GL_BLEND);
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
                 glEnable(GL_LINE_SMOOTH);
                 glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-            } else {
-                glDisable(GL_LINE_SMOOTH);
             }
             glLineWidth(edgeThickness);
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
             if (useShaders && shaderProgram.isLinked()) {
-                 drawModelShaders(*model, false, edgeColor, false);
+                drawModelShaders(*model, false, edgeColor, false);
             } else {
                 glColor3f(edgeColor.x(), edgeColor.y(), edgeColor.z());
                 drawModelVBO(*model);
@@ -295,20 +371,38 @@ void MeshViewer::drawNormals() {
 
 void MeshViewer::drawLabels() {
     glDisable(GL_LIGHTING);
-    const size_t maxLabels = 1000;
+    glDisable(GL_DEPTH_TEST);
+    
+    const size_t maxLabels = 500;
     size_t totalLabelCount = 0;
 
+    qglviewer::Vec camPos = camera()->position();
+    
     for (const auto& model : models) {
+        if (!model->gpuReady) continue;
         float s = normalizeScale ? model->scale : 1.0f;
+        
         if (showVertexLabels) {
             glColor3f(1.0f, 1.0f, 0.0f);
             for (size_t i = 0; i < model->data.vertices.size(); ++i) {
+                if (totalLabelCount >= maxLabels) break;
+                
                 const auto& v = model->data.vertices[i];
-                glm::vec3 p = v.position * s + model->offset;
-                qglviewer::Vec screenPos = camera()->projectedCoordinatesOf(qglviewer::Vec(p.x, p.y, p.z));
-                if (screenPos.z >= 0.0 && screenPos.z <= 1.0) {
-                    drawText((int)screenPos.x, (int)screenPos.y, QString::number(i));
-                    if (++totalLabelCount >= maxLabels) break;
+                glm::vec3 worldPos = v.position * s + model->offset;
+                
+                qglviewer::Vec screenPos = camera()->projectedCoordinatesOf(qglviewer::Vec(worldPos.x, worldPos.y, worldPos.z));
+                
+                if (screenPos.z > 0.0 && screenPos.z < 1.0) {
+                    qglviewer::Vec worldVec(worldPos.x, worldPos.y, worldPos.z);
+                    float dist = (worldVec - camPos).norm();
+                    if (dist > sceneRadius() * 3.0) continue;
+                    
+                    int x = static_cast<int>(screenPos.x);
+                    int y = static_cast<int>(screenPos.y);
+                    if (x >= 0 && x < width() && y >= 0 && y < height()) {
+                        drawText(x, y + 10, QString::number(i));
+                        totalLabelCount++;
+                    }
                 }
             }
         }
@@ -316,19 +410,35 @@ void MeshViewer::drawLabels() {
         if (showFaceLabels) {
             glColor3f(0.0f, 1.0f, 1.0f);
             for (size_t i = 0; i < model->data.indices.size(); i += 3) {
+                if (totalLabelCount >= maxLabels) break;
                 if (i + 2 >= model->data.indices.size()) break;
-                glm::vec3 center = (model->data.vertices[model->data.indices[i]].position + 
-                                   model->data.vertices[model->data.indices[i+1]].position + 
-                                   model->data.vertices[model->data.indices[i+2]].position) / 3.0f;
+                
+                const auto& v0 = model->data.vertices[model->data.indices[i]];
+                const auto& v1 = model->data.vertices[model->data.indices[i+1]];
+                const auto& v2 = model->data.vertices[model->data.indices[i+2]];
+                
+                glm::vec3 center = (v0.position + v1.position + v2.position) / 3.0f;
                 center = center * s + model->offset;
+                
                 qglviewer::Vec screenPos = camera()->projectedCoordinatesOf(qglviewer::Vec(center.x, center.y, center.z));
-                if (screenPos.z >= 0.0 && screenPos.z <= 1.0) {
-                    drawText((int)screenPos.x, (int)screenPos.y, QString::number(i / 3));
-                    if (++totalLabelCount >= maxLabels) break;
+                
+                if (screenPos.z > 0.0 && screenPos.z < 1.0) {
+                    qglviewer::Vec centerVec(center.x, center.y, center.z);
+                    float dist = (centerVec - camPos).norm();
+                    if (dist > sceneRadius() * 3.0) continue;
+                    
+                    int x = static_cast<int>(screenPos.x);
+                    int y = static_cast<int>(screenPos.y);
+                    if (x >= 0 && x < width() && y >= 0 && y < height()) {
+                        drawText(x, y + 10, QString::number(i / 3));
+                        totalLabelCount++;
+                    }
                 }
             }
         }
     }
+    
+    glEnable(GL_DEPTH_TEST);
 }
 
 void MeshViewer::drawBB() {

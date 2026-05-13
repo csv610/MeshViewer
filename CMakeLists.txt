@@ -27,29 +27,51 @@ find_package(assimp REQUIRED)
 find_package(glm REQUIRED)
 
 # Find QGLViewer
-# We search for QGLViewer. Users might need to provide -DCMAKE_PREFIX_PATH if it's in a non-standard location.
-find_path(QGLVIEWER_INCLUDE_DIR QGLViewer/qglviewer.h)
-find_library(QGLVIEWER_LIBRARY NAMES QGLViewer QGLViewer-qt6 QGLViewer-qt5)
+# Users might need to provide -DCMAKE_PREFIX_PATH if it's in a non-standard location.
+# Common locations: /usr/local (Homebrew), /opt/homebrew (Apple Silicon Homebrew)
+find_path(QGLVIEWER_INCLUDE_DIR QGLViewer/qglviewer.h
+    PATHS
+        /usr/local/include
+        /opt/homebrew/include
+        ${CMAKE_PREFIX_PATH}/include
+    DOC "QGLViewer include directory"
+)
+
+find_library(QGLVIEWER_LIBRARY NAMES QGLViewer QGLViewer-qt6 QGLViewer-qt5
+    PATHS
+        /usr/local/lib
+        /usr/local/lib/cmake/QGLViewer
+        /opt/homebrew/lib
+        /opt/homebrew/lib/cmake/QGLViewer
+        ${CMAKE_PREFIX_PATH}/lib
+    DOC "QGLViewer library"
+)
 
 if (QGLVIEWER_INCLUDE_DIR AND QGLVIEWER_LIBRARY)
     message(STATUS "Found QGLViewer: ${QGLVIEWER_LIBRARY}")
+    message(STATUS "QGLViewer include: ${QGLVIEWER_INCLUDE_DIR}")
 else()
-    message(FATAL_ERROR "QGLViewer not found. Please set QGLVIEWER_INCLUDE_DIR and QGLVIEWER_LIBRARY.")
+    message(FATAL_ERROR "QGLViewer not found. Please install via 'brew install qglviewer' or set -DCMAKE_PREFIX_PATH")
 endif()
 
+# Convert to absolute paths
+get_filename_component(QGLVIEWER_INCLUDE_DIR "${QGLVIEWER_INCLUDE_DIR}" ABSOLUTE)
+get_filename_component(QGLVIEWER_LIBRARY "${QGLVIEWER_LIBRARY}" ABSOLUTE)
+
 add_library(meshviewer_core STATIC
-    MainWindow.cpp
-    MainWindow.h
-    MeshViewer.cpp
-    MeshViewer.h
-    Mesh.cpp
-    Mesh.h
+    src/MainWindow.cpp
+    src/MainWindow.h
+    src/MeshViewer.cpp
+    src/MeshViewer.h
+    src/Mesh.cpp
+    src/Mesh.h
 )
 
 target_include_directories(meshviewer_core PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${QGLVIEWER_INCLUDE_DIR}
     ${ASSIMP_INCLUDE_DIRS}
+    /var/folders/kb/dq9v0bpn67gb64fkjtrvs38c0000gn/T/opencode/libQGLViewer
 )
 
 target_link_libraries(meshviewer_core PUBLIC
@@ -70,8 +92,8 @@ if(APPLE)
 endif()
 
 add_executable(meshviewer
-    main.cpp
-    resources.qrc
+    src/main.cpp
+    src/resources.qrc
 )
 
 target_link_libraries(meshviewer PRIVATE
