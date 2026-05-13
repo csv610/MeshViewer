@@ -238,7 +238,7 @@ void MeshViewer::draw() {
         }
         if (showPoints) {
             glDisable(GL_LIGHTING);
-            glColor3f(0.0f, 1.0f, 0.0f);
+glColor3f(0.0f, 0.0f, 1.0f);
             glPointSize(pointSize);
             glPushMatrix();
             glTranslatef(model->offset.x, model->offset.y, model->offset.z);
