@@ -217,7 +217,7 @@ void MainWindow::clearCache() {
         return;
     }
 
-    QString cachePath = QString::fromStdString(Mesh::getCachePath(lastLoadedFilename.toStdString()));
+    QString cachePath = QString::fromStdString(RenderMesh::getCachePath(lastLoadedFilename.toStdString()));
     if (QFile::exists(cachePath)) {
         if (QFile::remove(cachePath)) {
             statusBar()->showMessage("Cache cleared for: " + QFileInfo(lastLoadedFilename).fileName());

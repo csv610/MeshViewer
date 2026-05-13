@@ -8,7 +8,7 @@
 
 namespace fs = std::filesystem;
 
-std::string Mesh::getCachePath(const std::string& filename) {
+std::string RenderMesh::getCachePath(const std::string& filename) {
     try {
         fs::path p = fs::absolute(filename);
         size_t hash = std::hash<std::string>{}(p.string());
@@ -19,47 +19,8 @@ std::string Mesh::getCachePath(const std::string& filename) {
     }
 }
 
-bool Mesh::load(const std::string& filename) {
-    std::string cacheFilename = getCachePath(filename);
-    const uint32_t CACHE_MAGIC = 0x4D534832; // MSH2
-    
-    // Check if cache exists and is newer than the source file
-    if (fs::exists(cacheFilename) && fs::exists(filename)) {
-        auto sourceTime = fs::last_write_time(filename);
-        auto cacheTime = fs::last_write_time(cacheFilename);
-        
-        if (cacheTime > sourceTime) {
-            std::ifstream is(cacheFilename, std::ios::binary);
-            if (is) {
-                uint32_t magic;
-                is.read(reinterpret_cast<char*>(&magic), sizeof(uint32_t));
-                if (magic == CACHE_MAGIC) {
-                    clear();
-                    size_t vSize, iSize;
-                    is.read(reinterpret_cast<char*>(&vSize), sizeof(size_t));
-                    vertices.resize(vSize);
-                    is.read(reinterpret_cast<char*>(vertices.data()), vSize * sizeof(Vertex));
-                    
-                    is.read(reinterpret_cast<char*>(&iSize), sizeof(size_t));
-                    indices.resize(iSize);
-                    is.read(reinterpret_cast<char*>(indices.data()), iSize * sizeof(unsigned int));
-                    
-                    is.read(reinterpret_cast<char*>(&minBB), sizeof(glm::vec3));
-                    is.read(reinterpret_cast<char*>(&maxBB), sizeof(glm::vec3));
-                    is.read(reinterpret_cast<char*>(&hasVertexColors), sizeof(bool));
-                    is.read(reinterpret_cast<char*>(&hasFaceColors), sizeof(bool));
-                    
-                    size_t fcSize;
-                    is.read(reinterpret_cast<char*>(&fcSize), sizeof(size_t));
-                    faceColors.resize(fcSize);
-                    is.read(reinterpret_cast<char*>(faceColors.data()), fcSize * sizeof(glm::vec4));
-                    
-                    if (is) return true; // Successfully loaded from cache
-                }
-            }
-        }
-    }
-
+bool RenderMesh::load(const std::string& filename) {
+    // Simplified caching for now as RenderFace has dynamic vectors
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(filename, 
         aiProcess_Triangulate | 
@@ -74,17 +35,13 @@ bool Mesh::load(const std::string& filename) {
 
     clear();
     hasVertexColors = false;
+    hasFaceColors = false;
     
     unsigned int totalVertices = 0;
-    unsigned int totalIndices = 0;
     for (unsigned int i = 0; i < scene->mNumMeshes; ++i) {
         totalVertices += scene->mMeshes[i]->mNumVertices;
-        for (unsigned int j = 0; j < scene->mMeshes[i]->mNumFaces; ++j) {
-            totalIndices += scene->mMeshes[i]->mFaces[j].mNumIndices;
-        }
     }
     vertices.reserve(totalVertices);
-    indices.reserve(totalIndices);
 
     minBB = glm::vec3(std::numeric_limits<float>::max());
     maxBB = glm::vec3(std::numeric_limits<float>::lowest());
@@ -100,11 +57,10 @@ bool Mesh::load(const std::string& filename) {
         }
 
         if (ai_mesh->HasVertexColors(0)) hasVertexColors = true;
-        // If we have material colors that are not default grey, we also consider it having colors
         if (materialColor.r != 0.8f || materialColor.g != 0.8f || materialColor.b != 0.8f) hasVertexColors = true;
 
         for (unsigned int j = 0; j < ai_mesh->mNumVertices; ++j) {
-            Vertex v;
+            RenderVertex v;
             const aiVector3D& pos = ai_mesh->mVertices[j];
             v.position = glm::vec3(pos.x, pos.y, pos.z);
             
@@ -124,57 +80,43 @@ bool Mesh::load(const std::string& filename) {
             
             vertices.push_back(v);
             
-            if (pos.x < minBB.x) minBB.x = pos.x;
-            if (pos.y < minBB.y) minBB.y = pos.y;
-            if (pos.z < minBB.z) minBB.z = pos.z;
-            if (pos.x > maxBB.x) maxBB.x = pos.x;
-            if (pos.y > maxBB.y) maxBB.y = pos.y;
-            if (pos.z > maxBB.z) maxBB.z = pos.z;
+            minBB = glm::min(minBB, v.position);
+            maxBB = glm::max(maxBB, v.position);
         }
 
         for (unsigned int j = 0; j < ai_mesh->mNumFaces; ++j) {
             const aiFace& face = ai_mesh->mFaces[j];
-            for (unsigned int k = 0; k < face.mNumIndices; ++k) {
-                indices.push_back(baseVertex + face.mIndices[k]);
+            RenderFace rf;
+            rf.color = glm::vec4(materialColor.r, materialColor.g, materialColor.b, materialColor.a);
+            
+            if (face.mNumIndices >= 3) {
+                glm::vec3 v0 = vertices[baseVertex + face.mIndices[0]].position;
+                glm::vec3 v1 = vertices[baseVertex + face.mIndices[1]].position;
+                glm::vec3 v2 = vertices[baseVertex + face.mIndices[2]].position;
+                glm::vec3 edge1 = v1 - v0;
+                glm::vec3 edge2 = v2 - v0;
+                rf.normal = glm::normalize(glm::cross(edge1, edge2));
             }
+            
+            for (unsigned int k = 0; k < face.mNumIndices; ++k) {
+                rf.nodes.push_back(baseVertex + face.mIndices[k]);
+            }
+            
+            faces.push_back(rf);
         }
-    }
-
-    // Save to cache
-    std::ofstream os(cacheFilename, std::ios::binary);
-    if (os) {
-        os.write(reinterpret_cast<const char*>(&CACHE_MAGIC), sizeof(uint32_t));
-        size_t vSize = vertices.size();
-        size_t iSize = indices.size();
-        os.write(reinterpret_cast<const char*>(&vSize), sizeof(size_t));
-        os.write(reinterpret_cast<const char*>(vertices.data()), vSize * sizeof(Vertex));
-        os.write(reinterpret_cast<const char*>(&iSize), sizeof(size_t));
-        os.write(reinterpret_cast<const char*>(indices.data()), iSize * sizeof(unsigned int));
-        os.write(reinterpret_cast<const char*>(&minBB), sizeof(glm::vec3));
-        os.write(reinterpret_cast<const char*>(&maxBB), sizeof(glm::vec3));
-        os.write(reinterpret_cast<const char*>(&hasVertexColors), sizeof(bool));
-        os.write(reinterpret_cast<const char*>(&hasFaceColors), sizeof(bool));
-        
-        size_t fcSize = faceColors.size();
-        os.write(reinterpret_cast<const char*>(&fcSize), sizeof(size_t));
-        os.write(reinterpret_cast<const char*>(faceColors.data()), fcSize * sizeof(glm::vec4));
     }
 
     return true;
 }
 
-
-
-void Mesh::enableFaceColors() {
-    if (!faceColors.empty()) {
-        hasFaceColors = true;
-    }
+void RenderMesh::enableFaceColors() {
+    hasFaceColors = true;
 }
 
-void Mesh::clear() {
+void RenderMesh::clear() {
     vertices.clear();
-    indices.clear();
-    faceColors.clear();
+    faces.clear();
+    edges.clear();
     hasVertexColors = false;
     hasFaceColors = false;
 }

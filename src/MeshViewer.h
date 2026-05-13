@@ -11,7 +11,7 @@
 #include "RenderMesh.h"
 
 struct MeshModel {
-    Mesh data;
+    RenderMesh data;
     std::unique_ptr<QOpenGLBuffer> vbo;
     std::unique_ptr<QOpenGLBuffer> ibo;
     std::unique_ptr<QOpenGLVertexArrayObject> vao;
@@ -31,7 +31,7 @@ public:
     MeshViewer(QWidget* parent = nullptr);
     ~MeshViewer();
 
-    void addMesh(const Mesh& mesh, const QString& name = "Mesh");
+    void addMesh(const RenderMesh& mesh, const QString& name = "Mesh");
     void clearScene();
     void updateLayout();
     

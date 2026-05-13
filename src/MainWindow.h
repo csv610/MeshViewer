@@ -9,7 +9,7 @@
 #include "MeshViewer.h"
 
 struct PendingMesh {
-    Mesh mesh;
+    RenderMesh mesh;
     QString filename;
     bool ready = false;
     bool success = false;
@@ -51,10 +51,10 @@ private slots:
 
 private:
     MeshViewer* viewer;
-    Mesh mesh;
+    RenderMesh mesh;
     QMutex meshMutex;
     QList<std::shared_ptr<PendingMesh>> loadQueue;
-    QMap<QString, Mesh> loadedMeshesCache; // Cache for the current session
+    QMap<QString, RenderMesh> loadedMeshesCache; // Cache for the current session
     QTimer* benchmarkTimer;
     QString lastLoadedFilename;
 };
