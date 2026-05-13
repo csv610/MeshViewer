@@ -149,42 +149,7 @@ void MainWindow::toggleFaceColors(bool checked) {
     viewer->update(); 
 }
 
-void MainWindow::generateRandomFaceColors() {
-    if (viewer->getModels().empty()) {
-        statusBar()->showMessage("No mesh loaded.");
-        return;
-    }
-    
-    const auto& models = viewer->getModels();
-    for (size_t i = 0; i < models.size(); ++i) {
-        models[i]->data.generateRandomFaceColors();
-        models[i]->data.enableFaceColors();
-        if (viewer->useFaceColors) {
-            viewer->rebuildWithFaceColors(i);
-        } else {
-            viewer->useFaceColors = true;
-            viewer->rebuildWithFaceColors(i);
-        }
-    }
-    viewer->update();
-    statusBar()->showMessage("Generated random face colors.");
-}
 
-void MainWindow::generateRandomVertexColors() {
-    if (viewer->getModels().empty()) {
-        statusBar()->showMessage("No mesh loaded.");
-        return;
-    }
-    
-    const auto& models = viewer->getModels();
-    for (size_t i = 0; i < models.size(); ++i) {
-        models[i]->data.generateRandomVertexColors();
-    }
-    viewer->useVertexColors = true;
-    viewer->useFaceColors = false;
-    viewer->update();
-    statusBar()->showMessage("Generated random vertex colors.");
-}
 
 void MainWindow::toggleVertexColors(bool checked) {
     viewer->useVertexColors = checked;

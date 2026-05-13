@@ -1,4 +1,4 @@
-#include "Mesh.h"
+#include "RenderMesh.h"
 #include <iostream>
 #include <algorithm>
 #include <limits>
@@ -163,40 +163,7 @@ bool Mesh::load(const std::string& filename) {
     return true;
 }
 
-void Mesh::generateRandomFaceColors() {
-    if (indices.empty()) return;
-    
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-    
-    size_t numFaces = indices.size() / 3;
-    faceColors.clear();
-    faceColors.reserve(numFaces);
-    
-    for (size_t i = 0; i < numFaces; ++i) {
-        float r = dist(gen);
-        float g = dist(gen);
-        float b = dist(gen);
-        faceColors.push_back(glm::vec4(r, g, b, 1.0f));
-    }
-    
-    hasFaceColors = true;
-}
 
-void Mesh::generateRandomVertexColors() {
-    if (vertices.empty()) return;
-    
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-    
-    for (auto& v : vertices) {
-        v.color = glm::vec4(dist(gen), dist(gen), dist(gen), 1.0f);
-    }
-    
-    hasVertexColors = true;
-}
 
 void Mesh::enableFaceColors() {
     if (!faceColors.empty()) {

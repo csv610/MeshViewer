@@ -1,5 +1,5 @@
-#ifndef MESH_H
-#define MESH_H
+#ifndef RENDER_MESH_H
+#define RENDER_MESH_H
 
 #include <vector>
 #include <string>
@@ -27,8 +27,8 @@ struct Mesh {
 
     bool load(const std::string& filename);
     void clear();
-    void generateRandomFaceColors();
-    void generateRandomVertexColors();
+
+
     void enableFaceColors();
     
     static std::string getCachePath(const std::string& filename);

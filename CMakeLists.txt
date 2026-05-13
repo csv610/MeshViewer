@@ -34,8 +34,8 @@ add_library(meshviewer_core STATIC
     src/MainWindow.h
     src/MeshViewer.cpp
     src/MeshViewer.h
-    src/Mesh.cpp
-    src/Mesh.h
+    src/RenderMesh.cpp
+    src/RenderMesh.h
 )
 
 target_include_directories(meshviewer_core PUBLIC 

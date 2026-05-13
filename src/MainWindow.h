@@ -42,8 +42,8 @@ private slots:
     void toggleFacesMode(bool checked);
     void togglePointsMode(bool checked);
     void toggleEdgesMode(bool checked);
-    void generateRandomFaceColors();
-    void generateRandomVertexColors();
+
+
     void processReadyMeshes();
     void clearCache();
     void toggleShaderMode(bool checked);

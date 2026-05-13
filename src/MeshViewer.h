@@ -8,7 +8,7 @@
 #include <QElapsedTimer>
 #include <QGLViewer/qglviewer.h>
 #include <memory>
-#include "Mesh.h"
+#include "RenderMesh.h"
 
 struct MeshModel {
     Mesh data;
